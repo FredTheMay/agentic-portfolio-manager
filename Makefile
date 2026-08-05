@@ -30,11 +30,11 @@ test:
 coverage:
 	$(VENV)/bin/pytest --cov --cov-report=term-missing
 
-## SPEC §11 — >=90% on the two packages where a silent arithmetic error would
-## propagate into every downstream number. Both are empty until M1/M3, so this
-## reports 0% and fails by design; wire it into `check` once they have code.
+## SPEC §11 — >=90% on the packages where a silent arithmetic error would
+## propagate into every downstream number. Add `--cov=src.risk` at M3, once the
+## risk engine exists; coverage warns on a package with no code.
 coverage-gate:
-	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
+	$(VENV)/bin/pytest --cov=src.cfa --cov-report=term-missing --cov-fail-under=90
 
 typecheck:
 	$(VENV)/bin/mypy src tests
@@ -43,7 +43,7 @@ typecheck:
 lint-imports:
 	$(VENV)/bin/lint-imports
 
-check: test typecheck lint-imports
+check: test typecheck lint-imports coverage-gate
 
 clean:
 	rm -rf $(PROTO_OUT) .pytest_cache .mypy_cache

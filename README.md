@@ -6,7 +6,7 @@ deterministic risk engine. Python, FastAPI, React, AWS.
 > **Educational paper-trading simulation. Not investment advice.**
 > There is no live broker endpoint and there never will be one.
 
-**Status: Milestone 0 (foundations) complete.** See [SPEC.md](SPEC.md) for the full design and the
+**Status: Milestone 1 (CFA core) complete.** See [SPEC.md](SPEC.md) for the full design and the
 M0–M10 plan.
 
 ---
@@ -57,9 +57,42 @@ make check        # tests + mypy + import contracts
 make coverage     # coverage report
 ```
 
-SPEC §11 requires ≥90% coverage on `src/cfa/` and `src/risk/`. Both are empty until M1/M3, so
-`make coverage-gate` currently reports 0% and fails by design; it joins `make check` once those
-packages have code. CI reports coverage on every run without gating.
+`make check` gates on tests, mypy strict, the import contracts, and ≥90% coverage of `src/cfa/`
+(SPEC §11, currently **98%**). `src/risk/` joins that gate at M3.
+
+## The CFA core (M1)
+
+`src/cfa/` is the deterministic half of §2.1 — every number the system acts on originates here.
+Pure functions, zero I/O, no LLM, no network. Each one names its CFA topic area in its docstring
+and is checked against a **hand-computed** golden value in
+[tests/test_cfa_golden.py](tests/test_cfa_golden.py); nothing is asserted against the
+implementation's own output.
+
+| Module | SPEC | Topic area |
+|---|---|---|
+| [returns.py](src/cfa/returns.py) | §6.1 | Quantitative Methods — TWR/MWR, dispersion, OLS beta |
+| [portfolio.py](src/cfa/portfolio.py) | §6.2 | Portfolio Management — frontier, CAPM, Sharpe/Treynor/M², shrinkage |
+| [ratios.py](src/cfa/ratios.py) | §6.4 | Financial Statement Analysis — DuPont, accruals |
+| [valuation.py](src/cfa/valuation.py) | §6.5 | Equity Investments — DDM, FCFE, multiples |
+| [fixed_income.py](src/cfa/fixed_income.py) | §6.6 | Fixed Income — duration, convexity, yield conventions |
+| [derivatives.py](src/cfa/derivatives.py) | §6.7 | Derivatives — parity, forwards, payoffs |
+| [alternatives.py](src/cfa/alternatives.py) | §6.8 | Alternative Investments — fees, smoothing |
+
+Four decisions worth knowing about:
+
+- **Beta by regression, not `Cov/Var`.** The shortcut gives a point estimate and nothing else.
+  OLS also yields R², the standard errors, and the t-statistic on the intercept — without which
+  "the strategy has positive alpha" is unfalsifiable.
+- **Put-call parity is checked two ways.** Strict equality `C + PV(X) = P + S₀` holds only for
+  European options and is applied only to those. US listed equity options are American, so early
+  exercise breaks the identity; those get **bounds**, and only a breach outside them is flagged.
+  A strict check would fire constantly on legitimate quotes.
+- **`Decimal` at every public boundary.** Matrix inversion, regression, and root-finding have no
+  exact-decimal implementation, so they run in float64 and convert back — through
+  [_numeric.py](src/cfa/_numeric.py), the single place the two representations meet.
+- **Models return `None` rather than a number when their assumptions break.** Gordon Growth at
+  `g ≥ r` does not mean infinite value, it means the model does not apply. `None` propagating
+  into "no view" is correct; a fabricated number propagating into a portfolio weight is not.
 
 ## What Milestone 0 ships
 

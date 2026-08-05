@@ -40,10 +40,11 @@ jobs:
         run: mypy src tests
 
       # Structural tests: no wall clock, layer isolation, null-LLM pipeline,
-      # no numeric fields in LLM schemas.
-      #
-      # Coverage is reported but not gated yet. SPEC §11 requires >=90% on
-      # src/cfa/ and src/risk/; both are empty until M1/M3, so the gate would
-      # report 0% and fail. Add `--cov-fail-under` once they have code.
+      # no numeric fields in LLM schemas. Plus the CFA golden tests.
       - name: Tests
         run: pytest -v --cov --cov-report=term-missing
+
+      # SPEC §11 — >=90% where a silent arithmetic error would propagate into
+      # every downstream number. Add `--cov=src.risk` at M3.
+      - name: Coverage gate
+        run: pytest --cov=src.cfa --cov-report=term-missing --cov-fail-under=90
