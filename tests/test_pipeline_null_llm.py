@@ -11,10 +11,14 @@ the cycle completes.
 
 from __future__ import annotations
 
+import enum
+from typing import Any
+
+import pytest
 from pydantic import BaseModel, Field
 
 from src.llm.base import Conviction, LLMProvider, Stance
-from src.llm.null import NULL_CONVICTION, NULL_RATIONALE, NullProvider
+from src.llm.null import NULL_CONVICTION, NULL_RATIONALE, NullProvider, NullProviderError
 
 
 class Citation(BaseModel):
@@ -80,3 +84,80 @@ def test_null_provider_ignores_prompt_content() -> None:
     provider = NullProvider()
     bullish = provider.complete("be bullish", "AAPL is going to the moon", ResearchView)
     assert bullish.stance is Stance.NEUTRAL
+
+
+# --- Neutral-value derivation for the shapes future agents will use ---------
+
+
+class RequiredCollections(BaseModel):
+    """Collections without defaults still have to resolve to something empty."""
+
+    stance: Stance
+    citations: list[Citation]
+    tags: set[str]
+    scores: dict[str, str]
+    variadic: tuple[str, ...]
+    pair: tuple[str, Stance]
+    flagged: bool
+
+
+class Nested(BaseModel):
+    stance: Stance
+    detail: MacroNarrative
+
+
+def test_null_provider_fills_required_collections_empty() -> None:
+    result = NullProvider().complete("s", "u", RequiredCollections)
+
+    assert result.citations == []
+    assert result.tags == set()
+    assert result.scores == {}
+    assert result.variadic == ()
+    # A fixed-length tuple cannot be empty, so every slot gets its own neutral
+    # value rather than the whole field collapsing to ().
+    assert result.pair == (NULL_RATIONALE, Stance.NEUTRAL)
+    assert result.flagged is False
+
+
+def test_null_provider_recurses_into_nested_models() -> None:
+    result = NullProvider().complete("s", "u", Nested)
+
+    assert result.stance is Stance.NEUTRAL
+    assert result.detail.stance is Stance.NEUTRAL
+    assert result.detail.caveat is None
+
+
+def test_null_provider_respects_explicit_defaults() -> None:
+    class WithDefault(BaseModel):
+        stance: Stance
+        source: str = "preset"
+
+    assert NullProvider().complete("s", "u", WithDefault).source == "preset"
+
+
+class Phase(str, enum.Enum):
+    """A str enum with no NEUTRAL member — nothing here is a neutral answer."""
+
+    EXPANSION = "EXPANSION"
+    CONTRACTION = "CONTRACTION"
+
+
+class PhaseView(BaseModel):
+    phase: Phase
+
+
+def test_enum_without_neutral_member_fails_loudly() -> None:
+    # Silently picking the first member would put an unearned macro call into
+    # the portfolio. Refusing is the correct failure.
+    with pytest.raises(NullProviderError, match="no NEUTRAL member"):
+        NullProvider().complete("s", "u", PhaseView)
+
+
+class Untyped(BaseModel):
+    stance: Stance
+    payload: Any
+
+
+def test_underivable_field_fails_loudly() -> None:
+    with pytest.raises(NullProviderError, match="no neutral value"):
+        NullProvider().complete("s", "u", Untyped)

@@ -1,4 +1,4 @@
-.PHONY: install proto test typecheck lint-imports check clean
+.PHONY: install proto test coverage coverage-gate typecheck lint-imports check clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -26,6 +26,15 @@ proto:
 
 test:
 	$(VENV)/bin/pytest
+
+coverage:
+	$(VENV)/bin/pytest --cov --cov-report=term-missing
+
+## SPEC §11 — >=90% on the two packages where a silent arithmetic error would
+## propagate into every downstream number. Both are empty until M1/M3, so this
+## reports 0% and fails by design; wire it into `check` once they have code.
+coverage-gate:
+	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
 
 typecheck:
 	$(VENV)/bin/mypy src tests

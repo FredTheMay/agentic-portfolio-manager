@@ -54,7 +54,12 @@ Requires Python 3.12 or 3.13.
 make install      # venv + dependencies
 make proto        # generate protobuf stubs (gitignored — regenerate, never commit)
 make check        # tests + mypy + import contracts
+make coverage     # coverage report
 ```
+
+SPEC §11 requires ≥90% coverage on `src/cfa/` and `src/risk/`. Both are empty until M1/M3, so
+`make coverage-gate` currently reports 0% and fails by design; it joins `make check` once those
+packages have code. CI reports coverage on every run without gating.
 
 ## What Milestone 0 ships
 

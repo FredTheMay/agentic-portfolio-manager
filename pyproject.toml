@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-cov",
     "hypothesis",
     "mypy",
     "import-linter",
@@ -35,6 +36,23 @@ include = ["src*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q --strict-markers"
+
+# SPEC §11 requires >=90% coverage on src/cfa/ and src/risk/ — the two packages
+# where a silent arithmetic error would propagate into every downstream number.
+# `make coverage` gates on exactly those; the rest of the tree is reported, not
+# gated.
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = ["src/execution/proto_gen/*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.$",
+]
 
 [tool.mypy]
 python_version = "3.12"

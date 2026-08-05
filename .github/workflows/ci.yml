@@ -41,5 +41,9 @@ jobs:
 
       # Structural tests: no wall clock, layer isolation, null-LLM pipeline,
       # no numeric fields in LLM schemas.
+      #
+      # Coverage is reported but not gated yet. SPEC §11 requires >=90% on
+      # src/cfa/ and src/risk/; both are empty until M1/M3, so the gate would
+      # report 0% and fail. Add `--cov-fail-under` once they have code.
       - name: Tests
-        run: pytest -v
+        run: pytest -v --cov --cov-report=term-missing

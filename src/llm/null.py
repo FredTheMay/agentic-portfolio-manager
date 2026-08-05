@@ -54,10 +54,18 @@ def _neutral_for(annotation: Any, *, path: str, conviction: bool) -> Any:
 
     if origin in (list, set, frozenset):
         return []
-    if origin is tuple:
-        return ()
     if origin is dict:
         return {}
+    if origin is tuple:
+        args = get_args(annotation)
+        # A variadic tuple[X, ...] may be empty; a fixed-length tuple[X, Y] may
+        # not, so each slot gets its own neutral value.
+        if not args or (len(args) == 2 and args[1] is Ellipsis):
+            return ()
+        return tuple(
+            _neutral_for(arg, path=f"{path}[{i}]", conviction=conviction)
+            for i, arg in enumerate(args)
+        )
 
     if isinstance(annotation, type):
         if issubclass(annotation, BaseModel):
