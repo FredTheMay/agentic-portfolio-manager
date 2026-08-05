@@ -6,8 +6,21 @@ deterministic risk engine. Python, FastAPI, React, AWS.
 > **Educational paper-trading simulation. Not investment advice.**
 > There is no live broker endpoint and there never will be one.
 
-**Status: Milestone 1 (CFA core) complete.** See [SPEC.md](SPEC.md) for the full design and the
+**Status: Milestone 2 (data layer) complete.** See [SPEC.md](SPEC.md) for the full design and the
 M0–M10 plan.
+
+> ### ⚠️ Known limitation: survivorship bias
+>
+> The backtest universe ([config/universe.yaml](config/universe.yaml)) is a **fixed, current**
+> list of instruments, not point-in-time index membership. Names that were delisted, acquired, or
+> went to zero never enter the sample, so the strategy is never charged for having held them.
+> **Absolute returns are overstated — treat them as an upper bound.**
+>
+> Point-in-time constituent history (CRSP, Compustat) is commercial data with no free tier. The
+> honest options were to buy it or to state the limitation and refuse to present the backtest as
+> unbiased; this project does the second. Relative figures against the SPY/AGG benchmark are less
+> distorted, since the benchmark carries the same bias in the same direction. Constraint counts,
+> turnover, and implementation shortfall are unaffected.
 
 ---
 
@@ -93,6 +106,39 @@ Four decisions worth knowing about:
 - **Models return `None` rather than a number when their assumptions break.** Gordon Growth at
   `g ≥ r` does not mean infinite value, it means the model does not apply. `None` propagating
   into "no view" is correct; a fabricated number propagating into a portfolio weight is not.
+
+## The data layer (M2)
+
+Everything that touches the network goes through [src/data/](src/data/), and every accessor takes
+an `as_of` instant.
+
+| Module | Role |
+|---|---|
+| [pit.py](src/data/pit.py) | Point-in-time store — the visibility rule, generic over value type |
+| [edgar.py](src/data/edgar.py) | SEC fundamentals, indexed by **filing date** |
+| [fred.py](src/data/fred.py) | Macro series, **vintage-aware** so revisions don't leak backwards |
+| [sources.py](src/data/sources.py) | Daily bars behind `MarketDataSource` |
+| [cache.py](src/data/cache.py) | The network boundary: caching, offline replay |
+
+**The whole suite runs with no network and no API keys.** Clients take their fetcher by
+injection, so the same code serves a live request, a cached replay, or a test stub. A cache miss
+in offline mode raises rather than returning nothing — a missing input must fail loudly, not
+become a gap the optimizer interpolates over.
+
+Three details that matter more than they look:
+
+- **Only publication date governs visibility.** A datum carries `period_end` (what it describes)
+  and `published` (when it became public). Indexing fundamentals by fiscal period end is the
+  classic backtest error: FY2023 figures describe a period ending 31 December but aren't filed
+  until February.
+- **Revisions don't leak backwards.** Q1 GDP released in April at 2.1% and revised in May to 1.6%
+  must read 2.1% for any `as_of` in late April. That's what the world believed at the time.
+- **Filings get a publication lag.** EDGAR reports `filed` as a bare date. Treating a filing as
+  public at 00:00 UTC would make it visible before the market opened, so filings become visible at
+  the *end* of the filing day. If that's wrong, it's wrong in the safe direction.
+
+[tests/test_point_in_time.py](tests/test_point_in_time.py) pins all of this, including the case
+SPEC §4.4 names by hand: a Q4 filing published in February is invisible to an `as_of` in January.
 
 ## What Milestone 0 ships
 

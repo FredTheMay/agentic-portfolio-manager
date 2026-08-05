@@ -18,8 +18,28 @@ SRC = ROOT / "src"
 DECISION = SRC / "decision"
 EXECUTION = SRC / "execution"
 
-#: Vendor names that would betray broker knowledge above the boundary.
-BROKER_TOKENS = ("alpaca", "ib_insync", "ibapi")
+#: Order-placement surface. Any of these above the boundary means some module
+#: has learned about orders, venues, or fills (SPEC §2.2).
+#:
+#: Note this is deliberately *not* a ban on the string "alpaca". Alpaca is both
+#: a market data vendor and a broker, and SPEC §10 M2 puts "EDGAR/FRED/Alpaca
+#: behind MarketDataSource" in the data layer. Reading price bars from a vendor
+#: that also happens to broker trades leaks no execution semantics; calling its
+#: trading API does. The hosts differ, so the check can be precise.
+ORDER_SURFACE_TOKENS = (
+    "api.alpaca.markets",  # the *trading* host; data.alpaca.markets is fine
+    "submit_order",
+    "market_order",
+    "limit_order",
+    "time_in_force",
+    "/v2/orders",
+    "ib_insync",
+    "ibapi",
+)
+
+#: The decision layer is held to the stricter rule: it may not name a broker at
+#: all, since it has no business knowing one exists.
+BROKER_NAMES = ("alpaca", "ib_insync", "ibapi", "interactive brokers")
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -50,19 +70,45 @@ def test_decision_layer_does_not_import_execution() -> None:
     )
 
 
-def test_broker_names_appear_only_below_the_boundary() -> None:
+def test_order_placement_appears_only_below_the_boundary() -> None:
     violations: list[str] = []
     for path in sorted(SRC.rglob("*.py")):
         if EXECUTION in path.parents or "proto_gen" in path.parts:
             continue
         lowered = path.read_text().lower()
-        for token in BROKER_TOKENS:
+        for token in ORDER_SURFACE_TOKENS:
             if token in lowered:
                 violations.append(f"{path.relative_to(ROOT)} mentions {token!r}")
 
     assert not violations, (
-        "broker reference outside src/execution/ (SPEC §2.2):\n" + "\n".join(violations)
+        "order-placement surface outside src/execution/ (SPEC §2.2):\n" + "\n".join(violations)
     )
+
+
+def test_decision_layer_does_not_name_a_broker() -> None:
+    # Stricter than the rule above: the decision layer emits target weights and
+    # must not know that brokers exist at all.
+    violations: list[str] = []
+    for path in sorted(DECISION.rglob("*.py")):
+        lowered = path.read_text().lower()
+        for name in BROKER_NAMES:
+            if name in lowered:
+                violations.append(f"{path.relative_to(ROOT)} names {name!r}")
+
+    assert not violations, (
+        "broker named in the decision layer (SPEC §2.2):\n" + "\n".join(violations)
+    )
+
+
+def test_market_data_uses_the_data_host_not_the_trading_host() -> None:
+    # The precise form of the distinction above: src/data may talk to Alpaca's
+    # market data API and must never reach its trading API.
+    sources = SRC / "data" / "sources.py"
+    if not sources.is_file():
+        return
+    text = sources.read_text().lower()
+    assert "data.alpaca.markets" in text, "expected the market data host"
+    assert "api.alpaca.markets" not in text, "src/data must not reach the trading API"
 
 
 def test_both_layers_exist() -> None:
