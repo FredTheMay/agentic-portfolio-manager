@@ -33,6 +33,29 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+#: Only `src/` and `config/` are shipped. The handler used to import the
+#: synthetic data generator from `tests/`, which meant the test suite was a
+#: deployment dependency — packaging without it raised ModuleNotFoundError at
+#: cold start. The generator now lives in src/data/synthetic.py and
+#: tests/test_layer_isolation.py fails the build if that regresses.
+LAMBDA_ASSET_EXCLUDES = [
+    "tests",
+    "web",
+    "infra",
+    "scripts",
+    "docs",
+    ".venv",
+    ".git",
+    ".github",
+    "node_modules",
+    "**/__pycache__",
+    "**/*.pyc",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".hypothesis",
+    "*.md",
+]
+
 #: 21:30 UTC on weekdays — after the US equity close, so the session's closing
 #: prices exist. Running before the close would decide on stale marks.
 CYCLE_SCHEDULE = events.Schedule.cron(
@@ -62,7 +85,7 @@ class PortfolioManagerStack(Stack):
             "CycleFunction",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="src.api.handler.scheduled_cycle",
-            code=lambda_.Code.from_asset("../"),
+            code=lambda_.Code.from_asset("../", exclude=LAMBDA_ASSET_EXCLUDES),
             # The optimizer runs SLSQP over a covariance matrix; 15s would be
             # tight and a timeout mid-cycle is the one failure that leaves the
             # book in an unknown state.
@@ -93,7 +116,7 @@ class PortfolioManagerStack(Stack):
             "ApiFunction",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="src.api.handler.api_handler",
-            code=lambda_.Code.from_asset("../"),
+            code=lambda_.Code.from_asset("../", exclude=LAMBDA_ASSET_EXCLUDES),
             timeout=Duration.seconds(30),
             memory_size=1024,
             environment={"STATE_TABLE": table.table_name},

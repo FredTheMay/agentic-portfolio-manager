@@ -35,6 +35,16 @@ no one of them is sufficient:
 2. **Broker-side idempotency** (M8) — a duplicate `client_order_id` is rejected.
 3. **`put_item` on the mandate id** (M10) — a replay overwrites rather than appending.
 
+## What is in the bundle
+
+Only `src/` and `config/`. The handler previously imported its data generator from
+`tests/`, which made the test suite a deployment dependency — packaging without it raised
+`ModuleNotFoundError` at cold start, verified by packaging `src` + `config` alone and
+running the handler both ways. The generator now lives in
+[`src/data/synthetic.py`](../src/data/synthetic.py), and
+`tests/test_layer_isolation.py::test_production_code_never_imports_the_test_suite` fails
+the build if any module under `src/` imports from `tests/` again.
+
 ## Least privilege
 
 The cycle function can read and write the table. The API function can only **read** it, so

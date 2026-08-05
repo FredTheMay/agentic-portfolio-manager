@@ -69,7 +69,7 @@ def run_cycle(
     from src.execution import get_executor
     from src.execution.simulated import SimulatedExecutor
     from src.risk.ips import load_policy
-    from tests.synthetic import BETAS, SECTORS, make_source
+    from src.data.synthetic import BETAS, SECTORS, make_source
 
     active_store = store or build_store()
     now = (clock or WallClock()).now()

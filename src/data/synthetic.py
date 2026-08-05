@@ -1,9 +1,25 @@
-"""Deterministic synthetic market data for backtest tests.
+"""Deterministic synthetic market data (SPEC §4.2).
 
-Generated from a seeded PRNG rather than recorded from a vendor, so the whole
-suite runs offline and every run produces byte-identical bars. Prices follow a
-geometric random walk with a per-symbol drift and volatility, which is enough
-structure for the optimizer and risk engine to have something to disagree about.
+A real :class:`~src.data.events.MarketDataSource`, not a test fixture. It lives
+in ``src/data/`` because production code uses it: with no API keys configured
+there is nothing recorded to replay, so the scheduled Lambda cycle and the
+dashboard both fall back to this and **say so** in their status output.
+
+It began life under ``tests/``, which meant ``src/api/`` imported from the test
+suite — a layering inversion that would have broken any deployment packaging
+only ``src/``. ``tests/test_layer_isolation.py`` now fails the build if that
+recurs.
+
+Generated from a seeded PRNG rather than recorded from a vendor, so every run
+produces byte-identical bars and the whole system runs offline. Prices follow a
+geometric random walk around a single common market factor, scaled by each
+symbol's beta — without that factor the symbols are independent walks, the
+portfolio has zero beta against the benchmark by construction, and Treynor,
+Jensen's alpha and R-squared are all meaningless.
+
+**Synthetic prices have no earnings, no regimes, no crashes and no fat tails.**
+Anything measured on them demonstrates that the pipeline works, never that a
+strategy does.
 """
 
 from __future__ import annotations

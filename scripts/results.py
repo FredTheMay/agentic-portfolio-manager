@@ -10,7 +10,7 @@ from src.backtest.metrics import summarize
 from src.backtest.walkforward import run_under_both_fill_models
 from src.risk.ips import load_policy
 from src.time.clock import UTC
-from tests.synthetic import BETAS, SECTORS, make_source
+from src.data.synthetic import BETAS, SECTORS, make_source
 
 D = Decimal
 SYMBOLS = ("AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III", "JJJ", "KKK", "LLL")

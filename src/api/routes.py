@@ -306,7 +306,7 @@ def app_from_environment() -> FastAPI:
     from src.execution.simulated import SimulatedExecutor
     from src.risk.ips import load_policy
     from src.time.clock import UTC
-    from tests.synthetic import BETAS, SECTORS, make_source
+    from src.data.synthetic import BETAS, SECTORS, make_source
 
     from datetime import datetime
 

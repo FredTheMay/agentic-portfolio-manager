@@ -115,3 +115,29 @@ def test_both_layers_exist() -> None:
     # A passing isolation test over a missing directory proves nothing.
     assert (DECISION / "__init__.py").is_file()
     assert (EXECUTION / "__init__.py").is_file()
+
+
+def test_production_code_never_imports_the_test_suite() -> None:
+    """``src/`` must not depend on ``tests/``.
+
+    This existed as a real defect: ``src/api/routes.py`` and
+    ``src/api/handler.py`` both imported the synthetic data generator from
+    ``tests/synthetic.py``. It passed every check, because the tests are always
+    present when the tests run — and it would have broken the Lambda the moment
+    anything packaged only ``src/``.
+
+    The generator now lives in ``src/data/synthetic.py``, where it belongs: it
+    is a real ``MarketDataSource``, and production code legitimately falls back
+    to it when nothing has been recorded.
+    """
+    violations: list[str] = []
+    for path in sorted(SRC.rglob("*.py")):
+        if "proto_gen" in path.parts:
+            continue
+        for module in _imported_modules(path):
+            if module == "tests" or module.startswith("tests."):
+                violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+    assert not violations, (
+        "production code depends on the test suite:\n" + "\n".join(violations)
+    )

@@ -16,7 +16,7 @@ from src.execution.fill_models import SpreadCrossFillModel
 from src.execution.simulated import SimulatedExecutor
 from src.risk.ips import load_policy
 from src.time.clock import UTC
-from tests.synthetic import BETAS, SECTORS, make_source
+from src.data.synthetic import BETAS, SECTORS, make_source
 
 D = Decimal
 START = datetime(2022, 1, 3, 21, tzinfo=UTC)

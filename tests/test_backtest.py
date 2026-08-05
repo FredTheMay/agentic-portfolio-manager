@@ -32,7 +32,7 @@ from src.execution.fill_models import InstantFillModel, SpreadCrossFillModel
 from src.execution.simulated import SimulatedExecutor
 from src.risk.ips import load_policy
 from src.time.clock import UTC
-from tests.synthetic import BETAS, SECTORS, make_source
+from src.data.synthetic import BETAS, SECTORS, make_source
 
 D = Decimal
 POLICY = load_policy()

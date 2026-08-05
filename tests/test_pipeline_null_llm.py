@@ -33,7 +33,7 @@ from src.llm.base import Conviction, LLMError, LLMProvider, Stance
 from src.llm.null import NULL_CONVICTION, NULL_RATIONALE, NullProvider, NullProviderError
 from src.risk.ips import load_policy
 from src.time.clock import UTC
-from tests.synthetic import BETAS, SECTORS, make_source
+from src.data.synthetic import BETAS, SECTORS, make_source
 
 M = TypeVar("M", bound=BaseModel)
 D = Decimal
