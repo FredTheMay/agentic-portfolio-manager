@@ -1725,3 +1725,31 @@ def test_alternatives_refuse_impossible_inputs() -> None:
         )
     with pytest.raises(num.NumericError):
         alt.first_order_autocorrelation([D("1"), D("1"), D("1")])  # constant series
+
+
+def test_capped_frontier_stops_at_the_attainable_maximum() -> None:
+    # With a 30% per-name cap, no portfolio can reach the best asset's own
+    # return: the remaining 70% has to sit in worse names. Spanning to max(mu)
+    # would ask the solver for a target that does not exist.
+    #   0.30(0.10) + 0.30(0.05) = 0.045 over two assets, budget exhausted at 0.60
+    #   ... so the cap must be loose enough to reach 100% invested.
+    mu = [D("0.10"), D("0.08"), D("0.05")]
+    cov = [
+        [D("0.04"), D("0.00"), D("0.00")],
+        [D("0.00"), D("0.02"), D("0.00")],
+        [D("0.00"), D("0.00"), D("0.01")],
+    ]
+    frontier = pf.efficient_frontier(mu, cov, points=6, max_weight=D("0.50"))
+
+    # Attainable maximum: 0.50(0.10) + 0.50(0.08) = 0.09, not 0.10.
+    top = max(p.expected_return for p in frontier)
+    approx(top, "0.09", places=6)
+    for point in frontier:
+        assert max(point.weights) <= D("0.50") + D("1e-6")
+
+
+def test_frontier_rejects_a_cap_that_cannot_fund_the_portfolio() -> None:
+    mu = [D("0.10"), D("0.05")]
+    cov = [[D("0.04"), D("0.00")], [D("0.00"), D("0.01")]]
+    with pytest.raises(Exception, match="cannot reach"):
+        pf.efficient_frontier(mu, cov, points=5, max_weight=D("0.25"))

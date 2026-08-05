@@ -157,6 +157,28 @@ def tangency_portfolio(
     return to_decimal_list(raw / total)
 
 
+def _max_attainable_return(mu: NDArray[np.float64], cap: float | None) -> float:
+    """Highest expected return reachable subject to the budget and a per-name cap.
+
+    Without a cap this is simply the best single asset. With one it is *not*:
+    no portfolio can put more than ``cap`` in the best name, so the rest of the
+    budget has to go into progressively worse ones. Spanning a capped frontier
+    up to ``max(mu)`` asks the solver for targets that do not exist, which it
+    reports as an iteration-limit failure rather than as infeasibility.
+    """
+    if cap is None or cap >= 1.0:
+        return float(np.max(mu))
+    total = 0.0
+    remaining = 1.0
+    for value in sorted((float(m) for m in mu), reverse=True):
+        allocation = min(cap, remaining)
+        total += allocation * value
+        remaining -= allocation
+        if remaining <= 0.0:
+            break
+    return total
+
+
 @dataclass(frozen=True, slots=True)
 class FrontierPoint:
     """One portfolio on the efficient frontier."""
@@ -171,6 +193,7 @@ def efficient_frontier(
     covariance_matrix: Sequence[Sequence[Decimal]],
     points: int = 20,
     long_only: bool = True,
+    max_weight: Decimal | None = None,
 ) -> list[FrontierPoint]:
     """Minimum-variance portfolio at each of ``points`` target returns.
 
@@ -200,7 +223,16 @@ def efficient_frontier(
     if float(np.min(mu)) == float(np.max(mu)):
         raise NumericError("all expected returns are identical; the frontier is a single point")
 
-    bounds = [(0.0, 1.0)] * n if long_only else [(None, None)] * n
+    # A per-name cap applied *here* rather than after the fact matters: the
+    # optimizer re-solves subject to it, whereas capping a finished portfolio
+    # just truncates the largest position and leaves the rest unimproved.
+    upper = 1.0 if max_weight is None else to_float(max_weight)
+    if max_weight is not None and upper * n < 1.0:
+        raise NumericError(
+            f"a per-name cap of {max_weight} across {n} assets cannot reach a fully "
+            "invested portfolio"
+        )
+    bounds = [(0.0, upper)] * n if long_only else [(None, None)] * n
     start = np.full(n, 1.0 / n, dtype=np.float64)
     budget = {"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)}
 
@@ -219,7 +251,7 @@ def efficient_frontier(
         raise NumericError(f"minimum-variance solve failed: {anchor.message}")
 
     lowest = float(anchor.x @ mu)
-    highest = float(np.max(mu))
+    highest = _max_attainable_return(mu, upper if long_only else None)
     if highest <= lowest:
         raise NumericError("no efficient frontier above the minimum-variance portfolio")
 
