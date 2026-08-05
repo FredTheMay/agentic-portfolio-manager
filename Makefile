@@ -1,4 +1,4 @@
-.PHONY: install proto test coverage coverage-gate typecheck lint-imports check clean
+.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -34,6 +34,10 @@ coverage:
 ## propagate into every downstream number.
 coverage-gate:
 	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
+
+## Regenerate the numbers in RESULTS.md (SPEC §11).
+results:
+	PYTHONPATH=. $(PY) scripts/results.py
 
 typecheck:
 	$(VENV)/bin/mypy src tests
