@@ -1,0 +1,11 @@
+# AWS-only dependencies (SPEC §10, M10).
+#
+# Deliberately NOT in the root pyproject.toml. SPEC §12 says no new
+# dependencies without asking, and none of these are needed to run the system,
+# the backtest, or the test suite — only to deploy it. Install them separately:
+#
+#   python -m venv infra/.venv && infra/.venv/bin/pip install -r infra/requirements.txt
+aws-cdk-lib>=2.150.0
+constructs>=10.3.0
+boto3>=1.34.0
+mangum>=0.17.0

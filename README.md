@@ -6,8 +6,15 @@ deterministic risk engine. Python, FastAPI, React, AWS.
 > **Educational paper-trading simulation. Not investment advice.**
 > There is no live broker endpoint and there never will be one.
 
-**Status: Milestone 2 (data layer) complete.** See [SPEC.md](SPEC.md) for the full design and the
-M0–M10 plan.
+**Status: complete — M0 through M10.** See [SPEC.md](SPEC.md) for the design and
+[RESULTS.md](RESULTS.md) for backtest output.
+
+| | |
+|---|---|
+| Tests | **564** passing |
+| Coverage | **96%** on `src/cfa/` and `src/risk/` (SPEC §11 requires 90%) |
+| Type checking | `mypy --strict`, clean across 78 files |
+| Architecture | 3 import-linter contracts, enforced in CI |
 
 > ### ⚠️ Known limitation: survivorship bias
 >
@@ -53,9 +60,9 @@ config value.
 - **LLM privacy.** Free provider tiers generally train on inputs. Everything sent to a provider
   here is public market data, which is fine — but it is worth stating plainly.
 
-Known limitations that affect result interpretation (survivorship bias in the backtest universe,
-optimistic default fill model) will be documented here and in the dashboard footer as the
-milestones that introduce them land.
+Two limitations that affect how the results should be read: **survivorship bias** in the backtest
+universe (boxed above, and in the dashboard footer), and the fact that `InstantFillModel` is
+optimistic by construction — which is why every result is reported under both fill models.
 
 ---
 
@@ -66,12 +73,18 @@ Requires Python 3.12 or 3.13.
 ```bash
 make install      # venv + dependencies
 make proto        # generate protobuf stubs (gitignored — regenerate, never commit)
-make check        # tests + mypy + import contracts
-make coverage     # coverage report
+make check        # tests + mypy + import contracts + coverage gate
+make results      # regenerate RESULTS.md's numbers
+make serve        # read-only dashboard API on :8000
+cd web && npm install && npm run dev   # the dashboard
 ```
 
-`make check` gates on tests, mypy strict, the import contracts, and ≥90% coverage of `src/cfa/`
-(SPEC §11, currently **98%**). `src/risk/` joins that gate at M3.
+**No API keys are required for any of this.** The LLM defaults to `NullProvider`, the data
+layer replays from cache or synthetic data, and the executor defaults to the simulator. Keys
+(`GEMINI_API_KEY`, `FRED_API_KEY`, `ALPACA_API_KEY_ID`) only widen what the system can reach.
+
+`make check` gates on tests, `mypy --strict`, the import contracts, and ≥90% coverage of
+`src/cfa/` and `src/risk/` (SPEC §11 — currently **96%**).
 
 ## The CFA core (M1)
 
@@ -139,6 +152,22 @@ Three details that matter more than they look:
 
 [tests/test_point_in_time.py](tests/test_point_in_time.py) pins all of this, including the case
 SPEC §4.4 names by hand: a Q4 filing published in February is invisible to an `as_of` in January.
+
+## The milestones
+
+| | Ships | Notes |
+|---|---|---|
+| M0 | Clock, event model, LLM boundary, execution contract | The three retrofit-expensive choices |
+| M1 | [`src/cfa/`](src/cfa/) — CFA Level I core | Hand-computed golden tests |
+| M2 | [`src/data/`](src/data/) — point-in-time accessors | Lookahead impossible by construction |
+| M3 | [`src/risk/`](src/risk/) — IPS engine | 14 constraints, 10,000-case property test |
+| M4 | [`src/decision/`](src/decision/) — optimizer, mandate | Shrinkage + caps + CAPM inputs |
+| M5 | [`src/execution/`](src/execution/) — the boundary | Both fill models, shortfall |
+| M6 | [`src/backtest/`](src/backtest/) — walk-forward | [RESULTS.md](RESULTS.md) |
+| M7 | [`src/agents/`](src/agents/) — LLM agents | Views become numbers by table lookup |
+| M8 | Naive executor vs paper broker | Content-hash idempotency |
+| M9 | [`src/api/`](src/api/) + [`web/`](web/) — dashboard | Vetoed trades first |
+| M10 | [`infra/`](infra/) — AWS CDK | Lambda, EventBridge, DynamoDB, CloudFront |
 
 ## What Milestone 0 ships
 

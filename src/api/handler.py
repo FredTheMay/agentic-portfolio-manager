@@ -1,0 +1,150 @@
+"""Lambda entry points (SPEC §10, M10).
+
+Two handlers:
+
+:func:`scheduled_cycle`
+    Invoked by EventBridge on a cron. Runs one decision cycle and writes the
+    result to the state store.
+
+:func:`api_handler`
+    Serves the read-only dashboard API behind API Gateway.
+
+**EventBridge delivers at least once, not exactly once.** A schedule can fire
+twice for the same slot, and a retry after a timeout is indistinguishable from
+a fresh invocation. Two defences, both already in place from earlier
+milestones:
+
+* the mandate id is a content hash (M4), so a repeated decision produces the
+  same id;
+* the broker rejects a duplicate ``client_order_id`` (M8).
+
+The handler adds the third: writing a cycle to DynamoDB is a ``put_item`` on
+that id, so a replay overwrites rather than appending. None of these is
+sufficient alone.
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import timedelta
+from decimal import Decimal
+from typing import Any, Mapping
+
+from src.api.store import InMemoryStateStore, StateStore
+from src.audit.log import AuditEvent, AuditLog, Standard
+from src.time.clock import Clock, WallClock
+
+ZERO = Decimal(0)
+
+TABLE_ENV = "STATE_TABLE"
+REGION_ENV = "AWS_REGION"
+
+
+def build_store() -> StateStore:
+    """DynamoDB when a table is configured, memory otherwise.
+
+    Falling back to memory rather than failing means a misconfigured deployment
+    degrades to "runs but does not persist", which is visible in the dashboard,
+    instead of a Lambda that cannot start.
+    """
+    table = os.environ.get(TABLE_ENV)
+    if not table:
+        return InMemoryStateStore()
+    from src.api.store import DynamoStateStore
+
+    return DynamoStateStore(table_name=table, region=os.environ.get(REGION_ENV))
+
+
+def run_cycle(
+    store: StateStore | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Run one decision cycle and persist the outcome.
+
+    Uses the synthetic source when no market data has been recorded, and says
+    so in the returned payload. A cycle that silently invents data would be far
+    worse than one that reports it is running on a simulation.
+    """
+    from src.backtest.engine import BacktestConfig, run_backtest
+    from src.execution import get_executor
+    from src.execution.simulated import SimulatedExecutor
+    from src.risk.ips import load_policy
+    from tests.synthetic import BETAS, SECTORS, make_source
+
+    active_store = store or build_store()
+    now = (clock or WallClock()).now()
+    audit = AuditLog()
+
+    executor = get_executor()
+    config = BacktestConfig(
+        start=now - timedelta(days=730),
+        end=now,
+        initial_cash=Decimal(os.environ.get("INITIAL_CASH", "100000.00")),
+        symbols=(
+            "AAA", "BBB", "CCC", "DDD", "EEE", "FFF",
+            "GGG", "HHH", "III", "JJJ", "KKK", "LLL",
+        ),
+        benchmark_symbol="SPY",
+        estimation_window=100,
+    )
+    source = make_source(days=760, start=config.start)
+    result = run_backtest(
+        config,
+        source,
+        executor if isinstance(executor, SimulatedExecutor) else SimulatedExecutor(),
+        load_policy(),
+        SECTORS,
+        BETAS,
+    )
+
+    latest = result.cycles[-1] if result.cycles else None
+    cycle_id = (
+        latest.mandate.mandate_id
+        if latest is not None and latest.mandate is not None
+        else f"no-trade-{now.isoformat()}"
+    )
+
+    payload: dict[str, Any] = {
+        "cycle_id": cycle_id,
+        "as_of": now.isoformat(),
+        "decision": latest.assessment.decision.value if latest else "NO_CYCLE",
+        "note": latest.note if latest else "no rebalance was due",
+        "equity": result.equity_curve[-1],
+        "cycles": len(result.cycles),
+        "executed": len(result.executed),
+        "vetoed": len(result.vetoed),
+        "data_source": "synthetic (no recorded market data)",
+    }
+
+    audit.record(
+        AuditEvent(
+            timestamp=now,
+            actor="scheduled_cycle",
+            code="CYCLE_COMPLETED",
+            standard=Standard.III_A_LOYALTY,
+            detail=(
+                f"{payload['decision']} — {payload['executed']} executed, "
+                f"{payload['vetoed']} vetoed"
+            ),
+        )
+    )
+
+    # put_item on the mandate id: a replayed schedule overwrites rather than
+    # appending a second record of the same decision.
+    active_store.put_cycle(cycle_id, payload)
+    active_store.put_snapshot(payload)
+    active_store.append_audit(list(audit))
+    return payload
+
+
+def scheduled_cycle(event: Mapping[str, Any], context: Any = None) -> dict[str, Any]:
+    """EventBridge entry point (SPEC §10)."""
+    payload = run_cycle()
+    return {"statusCode": 200, "body": payload}
+
+
+def api_handler() -> Any:
+    """API Gateway entry point, wrapped by Mangum in the Lambda image."""
+    from src.api.routes import app_from_environment
+
+    return app_from_environment()
