@@ -11,9 +11,9 @@ deterministic risk engine. Python, FastAPI, React, AWS.
 
 | | |
 |---|---|
-| Tests | **564** passing |
+| Tests | **569** passing |
 | Coverage | **96%** on `src/cfa/` and `src/risk/` (SPEC §11 requires 90%) |
-| Type checking | `mypy --strict`, clean across 78 files |
+| Type checking | `mypy --strict`, clean across 79 files |
 | Architecture | 3 import-linter contracts, enforced in CI |
 
 > ### ⚠️ Known limitation: survivorship bias
@@ -168,6 +168,19 @@ SPEC §4.4 names by hand: a Q4 filing published in February is invisible to an `
 | M8 | Naive executor vs paper broker | Content-hash idempotency |
 | M9 | [`src/api/`](src/api/) + [`web/`](web/) — dashboard | Vetoed trades first |
 | M10 | [`infra/`](infra/) — AWS CDK | Lambda, EventBridge, DynamoDB, CloudFront |
+
+### Where the qualitative layer plugs in
+
+[`src/agents/pipeline.py`](src/agents/pipeline.py) is the only seam between the LLM half of the
+system and the quantitative half. Agents produce categorical views, the aggregator turns them
+into numeric tilts by table lookup, and the tilts adjust the CAPM baseline the optimizer starts
+from. Nothing else crosses.
+
+The default is `NoViews` — **every number in [RESULTS.md](RESULTS.md) was produced with the LLM
+contributing nothing**, which is worth stating plainly. With `NullProvider` the agent pipeline and
+no pipeline at all produce a byte-identical result digest, and
+[a test asserts it](tests/test_pipeline_null_llm.py): if they differed, the LLM would be
+influencing the portfolio while switched off.
 
 ## What Milestone 0 ships
 

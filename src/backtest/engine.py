@@ -32,6 +32,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Mapping, Sequence
 
+from src.agents.pipeline import NoViews, ViewPipeline
 from src.data.events import BarPayload, MarketDataSource, MarketEvent
 from src.decision.mandate import RebalanceMandate, Reconciliation, build_mandate, reconcile
 from src.decision.optimizer import OptimizerError, TargetPortfolio, estimate_inputs, optimize
@@ -87,6 +88,8 @@ class CycleRecord:
     #: is indistinguishable from a working strategy that chose to hold, which
     #: is exactly how a misconfigured optimizer hides for a whole backtest.
     note: str = ""
+    #: Numeric tilts the agents contributed, empty when views are disabled.
+    tilts: Mapping[str, Decimal] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,8 +134,17 @@ def run_backtest(
     policy: InvestmentPolicy,
     sectors: Mapping[str, str],
     betas: Mapping[str, Decimal],
+    views: ViewPipeline | None = None,
 ) -> BacktestResult:
-    """Run the event loop from ``config.start`` to ``config.end``."""
+    """Run the event loop from ``config.start`` to ``config.end``.
+
+    ``views`` supplies the qualitative half (SPEC §5.4). It defaults to
+    :class:`~src.agents.pipeline.NoViews`, so the engine is pure quantitative
+    construction unless a caller opts in — and swapping in an agent pipeline
+    backed by ``NullProvider`` changes nothing about whether the cycle
+    completes (SPEC §2.1(4)).
+    """
+    view_pipeline = views or NoViews()
     start = ensure_utc(config.start)
     end = ensure_utc(config.end)
     if end <= start:
@@ -216,6 +228,7 @@ def run_backtest(
             betas=betas,
             executor=executor,
             drawdown=drawdown,
+            views=view_pipeline,
         )
         cycles.append(record)
         if record.report is not None:
@@ -264,8 +277,9 @@ def _rebalance(
     betas: Mapping[str, Decimal],
     executor: ExecutionProvider,
     drawdown: Decimal,
+    views: ViewPipeline,
 ) -> CycleRecord:
-    """One decision cycle: estimate, optimize, check, mandate, execute, reconcile."""
+    """One decision cycle: views, estimate, optimize, check, mandate, execute, reconcile."""
     window = config.estimation_window
     symbols = tuple(s for s in config.symbols if len(history[s]) > window and s in prices)
     # `window` returns need `window + 1` prices; the readiness check upstream
@@ -294,6 +308,10 @@ def _rebalance(
         if symbol in prices and portfolio_value > ZERO
     }
 
+    # The qualitative layer enters here and nowhere else: as an additive
+    # adjustment to the CAPM baseline, produced by table lookup (SPEC §5.4).
+    tilts = views.tilts(symbols, stamp)
+
     try:
         inputs = estimate_inputs(
             symbols,
@@ -302,6 +320,7 @@ def _rebalance(
             market_return=config.market_return,
             risk_free_rate=config.risk_free_rate,
             periods_per_year=config.periods_per_year,
+            tilts=tilts,
         )
         target = optimize(inputs, max_position_weight=policy.max_position_weight)
     except (OptimizerError, KeyError) as exc:
@@ -328,7 +347,16 @@ def _rebalance(
     assessment = evaluate(target.weights, context, policy)
 
     if assessment.decision is Decision.REJECTED:
-        return CycleRecord(stamp, assessment, target, None, None, None, "vetoed by the risk engine")
+        return CycleRecord(
+            timestamp=stamp,
+            assessment=assessment,
+            target=target,
+            mandate=None,
+            report=None,
+            reconciliation=None,
+            note="vetoed by the risk engine",
+            tilts=tilts,
+        )
 
     mandate = build_mandate(
         decision_time=stamp,
@@ -343,7 +371,13 @@ def _rebalance(
     )
     report = executor.execute_to_completion(mandate, account, snapshot)
     return CycleRecord(
-        stamp, assessment, target, mandate, report, reconcile(mandate, report.realized_weights)
+        timestamp=stamp,
+        assessment=assessment,
+        target=target,
+        mandate=mandate,
+        report=report,
+        reconciliation=reconcile(mandate, report.realized_weights),
+        tilts=tilts,
     )
 
 
@@ -368,7 +402,15 @@ def _no_trade(
         universe=frozenset(),
         drawdown=drawdown,
     )
-    return CycleRecord(stamp, evaluate({}, context, policy), None, None, None, None, note)
+    return CycleRecord(
+        timestamp=stamp,
+        assessment=evaluate({}, context, policy),
+        target=None,
+        mandate=None,
+        report=None,
+        reconciliation=None,
+        note=note,
+    )
 
 
 def result_digest(result: BacktestResult) -> str:
