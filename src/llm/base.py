@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import enum
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, ClassVar, TypeVar
 
 from pydantic import BaseModel, Field
 
 from src.llm.schema_guard import CONVICTION_MARKER, validate_llm_schema
+from src.time.clock import Clock
 
 M = TypeVar("M", bound=BaseModel)
 
@@ -38,6 +42,66 @@ Conviction = Annotated[int, CONVICTION_MARKER, Field(ge=1, le=5)]
 
 class LLMError(Exception):
     """Base class for provider failures."""
+
+
+class RateLimitError(LLMError):
+    """Provider returned 429, or the local token bucket refused the call."""
+
+
+class InvalidResponseError(LLMError):
+    """Model output failed schema validation."""
+
+
+#: SPEC §2.1(3): two reparse attempts, then fall back to NEUTRAL and continue.
+#: A pipeline that halts because one model returned malformed JSON is worse
+#: than one that records "no view" and keeps going.
+MAX_REPARSE_ATTEMPTS = 2
+
+
+@dataclass
+class TokenBucket:
+    """Client-side rate limiter.
+
+    Takes a :class:`~src.time.clock.Clock` rather than reading the wall clock,
+    for the same reason everything else does (SPEC §4.1) — and usefully, it
+    means a test can exhaust and refill a bucket without sleeping.
+    """
+
+    capacity: int
+    refill_per_second: Decimal
+    clock: Clock
+    _tokens: Decimal = field(init=False)
+    _last: datetime | None = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        if self.capacity <= 0:
+            raise ValueError("token bucket capacity must be positive")
+        if self.refill_per_second <= 0:
+            raise ValueError("refill rate must be positive")
+        self._tokens = Decimal(self.capacity)
+
+    def _refill(self) -> None:
+        now = self.clock.now()
+        if self._last is not None:
+            elapsed = Decimal(str((now - self._last).total_seconds()))
+            if elapsed > 0:
+                self._tokens = min(
+                    Decimal(self.capacity), self._tokens + elapsed * self.refill_per_second
+                )
+        self._last = now
+
+    def take(self, tokens: int = 1) -> bool:
+        """Consume ``tokens`` if available. Returns False rather than blocking."""
+        self._refill()
+        if self._tokens >= tokens:
+            self._tokens -= Decimal(tokens)
+            return True
+        return False
+
+    @property
+    def available(self) -> Decimal:
+        self._refill()
+        return self._tokens
 
 
 class LLMProvider(ABC):
