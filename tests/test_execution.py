@@ -385,3 +385,153 @@ def test_executor_selection_reads_the_environment(monkeypatch: pytest.MonkeyPatc
     executor = get_executor()
     assert isinstance(executor, SimulatedExecutor)
     assert executor.fill_model.name == "SpreadCrossFillModel"
+
+
+# ---------------------------------------------------------------------------
+# Naive executor against a paper broker (SPEC §3.3, M8)
+# ---------------------------------------------------------------------------
+
+
+class FakeBroker:
+    """In-memory stand-in for the paper broker."""
+
+    def __init__(self, cash_amount: Decimal = D("100000.00")) -> None:
+        self._cash = cash_amount
+        self._positions: dict[str, int] = {}
+        self.submitted: list[dict[str, object]] = []
+        self.seen_ids: set[str] = set()
+        self.fail_next = False
+
+    def submit_market_order(
+        self, symbol: str, side: str, quantity: int, client_order_id: str
+    ) -> dict[str, object]:
+        from src.execution.naive import BrokerError
+
+        if self.fail_next:
+            self.fail_next = False
+            raise BrokerError("simulated broker outage")
+        if client_order_id in self.seen_ids:
+            raise BrokerError(f"duplicate client_order_id {client_order_id}")
+        self.seen_ids.add(client_order_id)
+        self.submitted.append(
+            {"symbol": symbol, "side": side, "qty": quantity, "id": client_order_id}
+        )
+        signed = quantity if side == "BUY" else -quantity
+        self._positions[symbol] = self._positions.get(symbol, 0) + signed
+        return {"filled_qty": str(quantity), "filled_avg_price": "100.00", "status": "filled"}
+
+    def positions(self) -> dict[str, int]:
+        return dict(self._positions)
+
+    def cash(self) -> Decimal:
+        return self._cash
+
+
+def test_naive_executor_submits_market_orders() -> None:
+    from src.execution.naive import NaiveExecutor
+
+    broker = FakeBroker()
+    executor = NaiveExecutor(broker=broker)
+    report = executor.execute_to_completion(
+        mandate({"AAA": D("0.10")}), Account(cash=D("100000.00")), market()
+    )
+
+    assert len(broker.submitted) == 1
+    assert broker.submitted[0]["symbol"] == "AAA"
+    assert report.fills[0].venue == "ALPACA_PAPER"
+
+
+def test_client_order_id_is_deterministic() -> None:
+    from src.execution.naive import client_order_id
+
+    request = mandate({"AAA": D("0.10")})
+    assert client_order_id(request.mandate_id, "AAA") == client_order_id(
+        request.mandate_id, "AAA"
+    )
+    assert client_order_id(request.mandate_id, "AAA") != client_order_id(
+        request.mandate_id, "BBB"
+    )
+
+
+def test_replaying_a_mandate_does_not_double_the_position() -> None:
+    # The case that matters: a cycle retried after an ambiguous network failure,
+    # where you genuinely do not know whether the order landed.
+    from src.execution.naive import NaiveExecutor
+
+    broker = FakeBroker()
+    executor = NaiveExecutor(broker=broker)
+    request = mandate({"AAA": D("0.10")})
+
+    executor.execute_to_completion(request, Account(cash=D("100000.00")), market())
+    second = executor.execute_to_completion(request, Account(cash=D("100000.00")), market())
+
+    assert len(broker.submitted) == 1, "the replay must not reach the broker"
+    assert any("idempotency" in r.detail for r in second.rejections)
+
+
+def test_a_broker_failure_becomes_a_rejection_not_a_crash() -> None:
+    from src.execution.naive import NaiveExecutor
+
+    broker = FakeBroker()
+    broker.fail_next = True
+    executor = NaiveExecutor(broker=broker)
+    report = executor.execute_to_completion(
+        mandate({"AAA": D("0.10")}), Account(cash=D("100000.00")), market()
+    )
+
+    assert report.rejections
+    assert report.fills == ()
+
+
+def test_naive_executor_reports_what_it_cannot_honor() -> None:
+    from src.execution.naive import NaiveExecutor
+
+    capabilities = NaiveExecutor(broker=FakeBroker()).capabilities()
+    assert capabilities.supports_participation_limits is False
+    assert capabilities.supports_intraday is True
+
+
+def test_naive_executor_writes_to_the_audit_log() -> None:
+    from src.audit.log import AuditLog
+    from src.execution.naive import NaiveExecutor
+
+    audit = AuditLog()
+    NaiveExecutor(broker=FakeBroker(), audit=audit).execute_to_completion(
+        mandate({"AAA": D("0.10")}), Account(cash=D("100000.00")), market()
+    )
+    assert audit.by_code("ORDER_SUBMITTED")
+
+
+def test_the_paper_broker_refuses_the_live_endpoint() -> None:
+    # SPEC §1: no live broker endpoint, ever. Enforced in code rather than
+    # left to a config review.
+    from src.execution.naive import AlpacaPaperBroker, BrokerError
+
+    with pytest.raises(BrokerError, match="paper-trading only"):
+        AlpacaPaperBroker(base_url="https://api.alpaca.markets")
+
+
+def test_the_paper_broker_needs_credentials() -> None:
+    from src.execution.naive import AlpacaPaperBroker, BrokerError
+
+    broker = AlpacaPaperBroker(key_id=None, secret_key=None)
+    import os
+
+    saved = {k: os.environ.pop(k, None) for k in ("ALPACA_API_KEY_ID", "ALPACA_API_SECRET_KEY")}
+    try:
+        with pytest.raises(BrokerError, match="no Alpaca paper credentials"):
+            broker.cash()
+    finally:
+        for key, value in saved.items():
+            if value is not None:
+                os.environ[key] = value
+
+
+def test_account_can_be_read_from_the_broker() -> None:
+    from src.execution.naive import account_from_broker
+
+    broker = FakeBroker()
+    broker.submit_market_order("AAA", "BUY", 10, "seed")
+    account = account_from_broker(broker)
+    assert account.positions["AAA"] == 10
+    assert account.cash == D("100000.00")

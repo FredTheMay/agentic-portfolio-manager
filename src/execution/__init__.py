@@ -43,6 +43,14 @@ EXECUTOR_ENV = "EXECUTOR"
 DEFAULT_EXECUTOR = "simulated"
 
 
+def _naive_executor() -> ExecutionProvider:
+    # Imported lazily so the paper-broker client is not a dependency of a
+    # backtest that will never place an order.
+    from src.execution.naive import AlpacaPaperBroker, NaiveExecutor
+
+    return NaiveExecutor(broker=AlpacaPaperBroker())
+
+
 def _grpc_executor() -> ExecutionProvider:
     # Imported lazily: the stub raises on use, and importing it eagerly would
     # make the C++ engine feel like a dependency of this package.
@@ -54,6 +62,7 @@ def _grpc_executor() -> ExecutionProvider:
 EXECUTORS: Mapping[str, Callable[[], ExecutionProvider]] = {
     "simulated": lambda: SimulatedExecutor(fill_model=InstantFillModel()),
     "simulated_spread": lambda: SimulatedExecutor(fill_model=SpreadCrossFillModel()),
+    "naive": _naive_executor,
     "grpc": _grpc_executor,
 }
 
