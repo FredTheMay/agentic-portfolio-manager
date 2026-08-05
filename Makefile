@@ -1,4 +1,4 @@
-.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results clean
+.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results serve web clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -34,6 +34,14 @@ coverage:
 ## propagate into every downstream number.
 coverage-gate:
 	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
+
+## Serve the read-only dashboard API on :8000.
+serve:
+	PYTHONPATH=. $(VENV)/bin/uvicorn --factory src.api.routes:app_from_environment --port 8000
+
+## Build the React dashboard (requires npm).
+web:
+	cd web && npm install && npm run build
 
 ## Regenerate the numbers in RESULTS.md (SPEC §11).
 results:

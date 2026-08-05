@@ -1,0 +1,12 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    // The API runs separately; proxying keeps the dev origin single so no CORS
+    // configuration is needed in a read-only service.
+    proxy: { "/api": "http://127.0.0.1:8000" },
+  },
+  build: { outDir: "dist", sourcemap: true },
+});
