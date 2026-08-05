@@ -45,6 +45,6 @@ jobs:
         run: pytest -v --cov --cov-report=term-missing
 
       # SPEC §11 — >=90% where a silent arithmetic error would propagate into
-      # every downstream number. Add `--cov=src.risk` at M3.
+      # every downstream number.
       - name: Coverage gate
-        run: pytest --cov=src.cfa --cov-report=term-missing --cov-fail-under=90
+        run: pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90

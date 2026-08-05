@@ -31,10 +31,9 @@ coverage:
 	$(VENV)/bin/pytest --cov --cov-report=term-missing
 
 ## SPEC §11 — >=90% on the packages where a silent arithmetic error would
-## propagate into every downstream number. Add `--cov=src.risk` at M3, once the
-## risk engine exists; coverage warns on a package with no code.
+## propagate into every downstream number.
 coverage-gate:
-	$(VENV)/bin/pytest --cov=src.cfa --cov-report=term-missing --cov-fail-under=90
+	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
 
 typecheck:
 	$(VENV)/bin/mypy src tests

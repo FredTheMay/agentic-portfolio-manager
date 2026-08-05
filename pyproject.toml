@@ -65,7 +65,7 @@ exclude = "^src/execution/proto_gen/"
 # These ship no type information. numpy and pandas do, and are checked.
 # (`scipy-stubs` exists if we ever want scipy checked too.)
 [[tool.mypy.overrides]]
-module = ["grpc_tools.*", "google.protobuf.*", "scipy.*", "sklearn.*"]
+module = ["grpc_tools.*", "google.protobuf.*", "scipy.*", "sklearn.*", "yaml"]
 ignore_missing_imports = true
 
 # --- SPEC §2.2: the decision layer must not know about execution ---
