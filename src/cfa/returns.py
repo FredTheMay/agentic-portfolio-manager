@@ -32,6 +32,16 @@ ONE = Decimal(1)
 
 #: Actual/365 fixed, the XIRR convention.
 DAYS_PER_YEAR = Decimal(365)
+#: Year fractions are measured in seconds, not whole days. Truncating to days
+#: would silently discard the time of an intraday cash flow, which is exactly
+#: the assumption SPEC §4.2 exists to avoid.
+SECONDS_PER_YEAR = DAYS_PER_YEAR * Decimal(86_400)
+
+#: Widening brackets for the IRR solve. A short holding period annualizes to an
+#: enormous rate — a 1% gain over twelve hours is ~1400x annualized — so a
+#: bracket wide enough for daily data cannot span intraday. Rather than pick one
+#: absurd bound, widen until the root is bracketed.
+IRR_BRACKETS = (10.0, 1_000.0, 1e6)
 
 
 def holding_period_return(
@@ -80,19 +90,33 @@ def money_weighted_return(cash_flows: Sequence[tuple[datetime, Decimal]]) -> Dec
         raise ValueError("IRR requires at least one sign change in the cash flows")
 
     start = dated[0][0]
-    # Year fractions on actual/365; float is required for the solve itself.
-    years = [to_float((ts - start).days / DAYS_PER_YEAR) for ts, _ in dated]
+    # Year fractions on actual/365, measured to the second. Float is required
+    # for the solve itself.
+    years = [
+        to_float(Decimal(str((ts - start).total_seconds())) / SECONDS_PER_YEAR)
+        for ts, _ in dated
+    ]
     values = [to_float(amount) for _, amount in dated]
+
+    if years[-1] <= 0:
+        raise ValueError("all cash flows share one instant; no rate of return is defined")
 
     def npv(rate: float) -> float:
         return float(sum(v / (1.0 + rate) ** t for v, t in zip(values, years)))
 
-    # Bracket the root. -0.9999 rather than -1 because the NPV pole sits at -1.
-    low, high = -0.9999, 10.0
-    if npv(low) * npv(high) > 0:
-        raise ValueError("could not bracket an IRR in (-99.99%, 1000%)")
+    # -0.9999 rather than -1 because the NPV pole sits at -1.
+    low = -0.9999
+    base = npv(low)
+    for high in IRR_BRACKETS:
+        if base * npv(high) <= 0:
+            return to_decimal(
+                float(brentq(npv, low, high, xtol=1e-12, rtol=1e-12, maxiter=200))
+            )
 
-    return to_decimal(float(brentq(npv, low, high, xtol=1e-12, rtol=1e-12, maxiter=200)))
+    raise ValueError(
+        f"could not bracket an IRR in (-99.99%, {IRR_BRACKETS[-1]:.0%}); "
+        "the cash-flow series may have no real internal rate of return"
+    )
 
 
 def geometric_mean_return(returns: Sequence[Decimal]) -> Decimal:

@@ -39,7 +39,7 @@ only the optimistic figure is the classic amateur tell.
 |---|---:|---:|
 | **Annualized TWR** | **16.11%** | **16.07%** |
 | Benchmark TWR | 17.09% | 17.09% |
-| MWR | 16.69% | 16.69% |
+| MWR | 16.73% | 16.69% |
 | Annualized volatility | 11.95% | 11.95% |
 | Max drawdown | 11.65% | 11.66% |
 | Portfolio beta | 0.64 | 0.64 |

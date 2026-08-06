@@ -85,6 +85,41 @@ def test_money_weighted_return_multi_period() -> None:
     approx(ret.money_weighted_return(flows), "0.10", places=8)
 
 
+def test_money_weighted_return_measures_time_to_the_second() -> None:
+    # SPEC §4.2: timestamps are instants, never dates. Truncating year
+    # fractions to whole days made these two series indistinguishable, which
+    # silently assumed daily data in the one metric most exposed to timing.
+    at_midnight = [(at(2023, 1, 1), D("-100")), (at(2023, 6, 30), D("110"))]
+    at_noon = [
+        (at(2023, 1, 1), D("-100")),
+        (datetime(2023, 6, 30, 12, tzinfo=UTC), D("110")),
+    ]
+
+    earlier = ret.money_weighted_return(at_midnight)
+    later = ret.money_weighted_return(at_noon)
+
+    assert earlier != later, "time of day must affect an annualized rate"
+    # The same gain taken half a day later annualizes to slightly less.
+    assert later < earlier
+
+
+def test_money_weighted_return_handles_an_intraday_round_trip() -> None:
+    # A 1% gain over twelve hours annualizes to roughly 1400x. The bracket has
+    # to be wide enough to contain it, or the whole intraday claim is untested.
+    flows = [
+        (at(2023, 1, 1), D("-100")),
+        (datetime(2023, 1, 1, 12, tzinfo=UTC), D("101")),
+    ]
+    result = ret.money_weighted_return(flows)
+    assert result > D("1000"), f"expected an enormous annualized rate, got {result}"
+
+
+def test_money_weighted_return_rejects_a_zero_length_holding() -> None:
+    # Every flow at one instant: there is no period to earn a return over.
+    with pytest.raises(ValueError, match="one instant"):
+        ret.money_weighted_return([(at(2023, 1, 1), D("-100")), (at(2023, 1, 1), D("110"))])
+
+
 def test_money_weighted_return_requires_a_sign_change() -> None:
     flows = [(at(2023, 1, 1), D("-100")), (at(2024, 1, 1), D("-50"))]
     with pytest.raises(ValueError, match="sign change"):

@@ -156,7 +156,6 @@ def run_backtest(
     # Latest known price per symbol, and the adjusted history the estimator uses.
     prices: dict[str, Decimal] = {}
     history: dict[str, list[Decimal]] = {s: [] for s in config.symbols}
-    benchmark_history: list[Decimal] = []
 
     timestamps: list[datetime] = []
     equity: list[Decimal] = []
@@ -182,11 +181,8 @@ def run_backtest(
             if price is not None:
                 prices[event.symbol] = price
             adjusted = _adjusted(event)
-            if adjusted is not None:
-                if event.symbol in history:
-                    history[event.symbol].append(adjusted)
-                if event.symbol == config.benchmark_symbol:
-                    benchmark_history.append(adjusted)
+            if adjusted is not None and event.symbol in history:
+                history[event.symbol].append(adjusted)
 
         # A session only counts once every tracked symbol has printed, so the
         # estimation window is not skewed by a symbol that started late.
