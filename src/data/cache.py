@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -32,8 +33,31 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 
 import httpx
 
-#: Sent on every outbound request. EDGAR rejects traffic without a contact.
-DEFAULT_USER_AGENT = "agentic-portfolio-manager (educational paper trading; contact via GitHub)"
+#: Environment variable holding the contact string SEC EDGAR requires.
+USER_AGENT_ENV = "EDGAR_USER_AGENT"
+
+#: Sent on every outbound request. SEC EDGAR's fair-access policy requires a
+#: real contact address and throttles or blocks traffic without one, so this
+#: default is a placeholder that must be overridden via ``$EDGAR_USER_AGENT``
+#: before any live EDGAR call. See:
+#: https://www.sec.gov/os/webmaster-faq#developers
+FALLBACK_USER_AGENT = "agentic-portfolio-manager (educational paper trading; set EDGAR_USER_AGENT)"
+
+
+def default_user_agent() -> str:
+    """Contact string for outbound requests, from ``$EDGAR_USER_AGENT``."""
+    return os.environ.get(USER_AGENT_ENV) or FALLBACK_USER_AGENT
+
+
+def user_agent_is_configured() -> bool:
+    """Whether a real contact has been supplied.
+
+    Checked before a live EDGAR run rather than discovered as a 403 halfway
+    through backfilling a universe.
+    """
+    configured = os.environ.get(USER_AGENT_ENV, "")
+    return "@" in configured
+
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 
@@ -156,10 +180,13 @@ class HttpxFetcher:
 
     def __init__(
         self,
-        user_agent: str = DEFAULT_USER_AGENT,
+        user_agent: str | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
-        self._headers = {"User-Agent": user_agent, "Accept": "application/json"}
+        self._headers = {
+            "User-Agent": user_agent or default_user_agent(),
+            "Accept": "application/json",
+        }
         self._timeout = timeout
 
     def get_json(self, url: str, params: Mapping[str, str] | None = None) -> Any:

@@ -577,3 +577,19 @@ def test_the_whole_data_layer_replays_offline(tmp_path: Path) -> None:
 
     assert recorded is not None and replayed is not None
     assert recorded == replayed, "SPEC §9: identical inputs, identical output"
+
+
+def test_edgar_contact_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    # SEC EDGAR's fair-access policy requires a real contact address and
+    # throttles traffic without one. Hardcoding a placeholder meant every live
+    # run would have been throttled with no way to fix it but editing source.
+    from src.data.cache import HttpxFetcher, default_user_agent, user_agent_is_configured
+
+    monkeypatch.delenv("EDGAR_USER_AGENT", raising=False)
+    assert not user_agent_is_configured()
+    assert "set EDGAR_USER_AGENT" in default_user_agent()
+
+    monkeypatch.setenv("EDGAR_USER_AGENT", "Jane Doe jane@example.com")
+    assert user_agent_is_configured()
+    assert default_user_agent() == "Jane Doe jane@example.com"
+    assert HttpxFetcher()._headers["User-Agent"] == "Jane Doe jane@example.com"
