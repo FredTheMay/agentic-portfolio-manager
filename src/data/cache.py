@@ -176,16 +176,25 @@ class ResponseCache:
 
 
 class HttpxFetcher:
-    """Live HTTP. The only class in the system that opens a socket."""
+    """Live HTTP. The only class in the system that opens a socket.
+
+    ``extra_headers`` carries per-vendor authentication. EDGAR and FRED need
+    none — EDGAR identifies callers by User-Agent and FRED takes its key as a
+    query parameter — but Alpaca authenticates by header, so without this a
+    live market-data call returns 401. See
+    :func:`src.data.sources.alpaca_headers`.
+    """
 
     def __init__(
         self,
         user_agent: str | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> None:
         self._headers = {
             "User-Agent": user_agent or default_user_agent(),
             "Accept": "application/json",
+            **(dict(extra_headers) if extra_headers else {}),
         }
         self._timeout = timeout
 

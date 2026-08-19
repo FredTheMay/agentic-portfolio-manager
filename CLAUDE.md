@@ -30,6 +30,7 @@ make typecheck      # mypy --strict src tests
 make lint-imports   # the three architectural contracts
 make coverage       # coverage report
 make results        # regenerate RESULTS.md's numbers
+make check-keys     # verify each API credential against its live service
 make proto          # regenerate protobuf stubs (gitignored — never commit them)
 make serve          # read-only dashboard API on :8000
 make web            # build the React dashboard
@@ -202,7 +203,7 @@ stays I/O-free), `src/api/store.py` (Lambda state), `src/agents/pipeline.py` and
 
 ## Status
 
-M0–M10 complete. 574 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
+M0–M10 complete. 575 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
 `src/cfa` and `src/risk`.
 
 **The numbers in RESULTS.md are from synthetic data** (`src/data/synthetic.py`) because no

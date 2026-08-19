@@ -593,3 +593,26 @@ def test_edgar_contact_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
     assert user_agent_is_configured()
     assert default_user_agent() == "Jane Doe jane@example.com"
     assert HttpxFetcher()._headers["User-Agent"] == "Jane Doe jane@example.com"
+
+
+def test_alpaca_requests_carry_authentication_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Alpaca authenticates market data by header. EDGAR identifies callers by
+    # User-Agent and FRED takes a query parameter, so this was the one vendor
+    # the shared fetcher could not reach — every live call returned 401.
+    from src.data.cache import HttpxFetcher
+    from src.data.sources import SourceError, alpaca_headers
+
+    monkeypatch.delenv("ALPACA_API_KEY_ID", raising=False)
+    monkeypatch.delenv("ALPACA_API_SECRET_KEY", raising=False)
+    with pytest.raises(SourceError, match="no Alpaca credentials"):
+        alpaca_headers()
+
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PKTEST")
+    monkeypatch.setenv("ALPACA_API_SECRET_KEY", "secret")
+    headers = alpaca_headers()
+    assert headers == {"APCA-API-KEY-ID": "PKTEST", "APCA-API-SECRET-KEY": "secret"}
+
+    fetcher = HttpxFetcher(extra_headers=headers)
+    assert fetcher._headers["APCA-API-KEY-ID"] == "PKTEST"
+    # The EDGAR contact must survive alongside the vendor headers.
+    assert "User-Agent" in fetcher._headers

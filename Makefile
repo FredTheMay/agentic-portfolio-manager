@@ -1,4 +1,4 @@
-.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results serve web clean
+.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results check-keys serve web clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -34,6 +34,10 @@ coverage:
 ## propagate into every downstream number.
 coverage-gate:
 	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
+
+## Verify each API credential against its live service.
+check-keys:
+	PYTHONPATH=. $(PY) scripts/check_keys.py
 
 ## Serve the read-only dashboard API on :8000.
 serve:

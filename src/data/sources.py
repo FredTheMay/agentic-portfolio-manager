@@ -21,8 +21,10 @@ explicitly instead of inferring them from a jump in an adjusted series.
 from __future__ import annotations
 
 import heapq
+import os
 from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
@@ -32,6 +34,11 @@ from src.time.clock import UTC, ensure_utc
 
 ALPACA_BARS_URL = "https://data.alpaca.markets/v2/stocks/bars"
 
+#: Alpaca authenticates market-data requests by header, unlike EDGAR (which
+#: identifies callers by User-Agent) and FRED (which takes a query parameter).
+ALPACA_KEY_ENV = "ALPACA_API_KEY_ID"
+ALPACA_SECRET_ENV = "ALPACA_API_SECRET_KEY"
+
 #: Daily bars are stamped at the US equity close, 16:00 America/New_York.
 #: Expressed in UTC as a fixed 21:00, which is correct during EST. See
 #: `DailyBarSource` for why the DST caveat is acceptable for a daily strategy.
@@ -40,6 +47,41 @@ US_EQUITY_CLOSE_UTC_HOUR = 21
 
 class SourceError(RuntimeError):
     """Raised on malformed market data or an out-of-order stream."""
+
+
+def alpaca_headers(key_id: str | None = None, secret_key: str | None = None) -> dict[str, str]:
+    """Authentication headers for Alpaca's market data API.
+
+    Falls back to ``$ALPACA_API_KEY_ID`` / ``$ALPACA_API_SECRET_KEY``. Raises
+    rather than returning empty headers, because an unauthenticated request
+    fails as a 401 several layers away from the missing credential.
+    """
+    key = key_id or os.environ.get(ALPACA_KEY_ENV)
+    secret = secret_key or os.environ.get(ALPACA_SECRET_ENV)
+    if not key or not secret:
+        raise SourceError(
+            f"no Alpaca credentials: set {ALPACA_KEY_ENV} and {ALPACA_SECRET_ENV}. "
+            "Backtests over cached or synthetic data need neither."
+        )
+    return {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
+
+
+def live_alpaca_fetcher(
+    cache_root: "Path | None" = None,
+    key_id: str | None = None,
+    secret_key: str | None = None,
+) -> JsonFetcher:
+    """A caching fetcher authenticated for Alpaca market data.
+
+    Recording through the cache means the credentials are needed once; every
+    later run replays offline (SPEC §9).
+    """
+    from src.data.cache import CachingFetcher, HttpxFetcher, ResponseCache
+
+    live = HttpxFetcher(extra_headers=alpaca_headers(key_id, secret_key))
+    if cache_root is None:
+        return live
+    return CachingFetcher(ResponseCache(root=cache_root), inner=live)
 
 
 def _parse_amount(value: Any, field: str) -> Decimal:
