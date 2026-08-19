@@ -31,6 +31,7 @@ make lint-imports   # the three architectural contracts
 make coverage       # coverage report
 make results        # regenerate RESULTS.md's numbers
 make check-keys     # verify each API credential against its live service
+make backfill       # record real data into data/cache — the ONLY script that fetches
 make proto          # regenerate protobuf stubs (gitignored — never commit them)
 make serve          # read-only dashboard API on :8000
 make web            # build the React dashboard
@@ -203,7 +204,7 @@ stays I/O-free), `src/api/store.py` (Lambda state), `src/agents/pipeline.py` and
 
 ## Status
 
-M0–M10 complete. 575 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
+M0–M10 complete. 592 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
 `src/cfa` and `src/risk`.
 
 **The numbers in RESULTS.md are from synthetic data** (`src/data/synthetic.py`) because no
@@ -211,7 +212,14 @@ API keys are configured. They demonstrate the pipeline is complete, deterministi
 internally consistent. They do **not** demonstrate that the strategy works, and RESULTS.md
 says so at the top. Do not quote them as if they were market results.
 
+The real-data path is built and wired: `make backfill` records EDGAR/FRED/Alpaca into
+`data/cache`, and `make results` then uses it automatically and says which source it used.
+Everything downstream reads the cache **offline**, so a backtest never depends on the day
+it was run.
+
 Outstanding, both needing the repository owner:
-1. Real data — see `.env.example`. The vendor-specific parsing in `edgar.py`/`fred.py`/
-   `sources.py` has only ever run against stub payloads, so expect breakage there first.
+1. Credentials — see `.env.example`, then `make check-keys`. The vendor-specific parsing in
+   `edgar.py`/`fred.py`/`sources.py` has only ever run against stub payloads, so expect
+   breakage there first; `make backfill` reports EDGAR field coverage precisely so a thin
+   `CONCEPT_TAGS` map is diagnosable rather than mysterious.
 2. CI has never been observed running (private repo).
