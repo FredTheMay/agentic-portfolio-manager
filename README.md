@@ -11,7 +11,7 @@ deterministic risk engine. Python, FastAPI, React, AWS.
 
 | | |
 |---|---|
-| Tests | **570** passing |
+| Tests | **597** passing |
 | Coverage | **96%** on `src/cfa/` and `src/risk/` (SPEC §11 requires 90%) |
 | Type checking | `mypy --strict`, clean across 79 files |
 | Architecture | 3 import-linter contracts, enforced in CI |

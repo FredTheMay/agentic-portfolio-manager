@@ -26,7 +26,7 @@ from src.data.cache import CachingFetcher, HttpxFetcher, ResponseCache, user_age
 from src.data.edgar import CONCEPT_TAGS, EdgarClient
 from src.data.fred import CPI, FED_FUNDS, TERM_SPREAD, THREE_MONTH_TREASURY, UNEMPLOYMENT
 from src.data.fred import FredClient
-from src.data.live import DEFAULT_CACHE_ROOT
+from src.data.live import DEFAULT_CACHE_ROOT, write_manifest
 from src.data.sources import AlpacaBarClient, alpaca_headers, live_alpaca_fetcher
 from src.data.universe import equity_symbols, load_universe
 
@@ -51,14 +51,18 @@ def backfill_prices(root: Path, years: int) -> bool:
         print(f"  prices  SKIPPED  {exc}")
         return False
 
+    symbols = list(universe.fetch_list())
     try:
         source = AlpacaBarClient(live_alpaca_fetcher(cache_root=root)).daily_bars(
-            list(universe.fetch_list()), start, end
+            symbols, start, end
         )
     except Exception as exc:  # noqa: BLE001
         print(f"  prices  FAILED   {type(exc).__name__}: {exc}")
         return False
 
+    # Record the exact window so a replay asks for the same cache keys rather
+    # than guessing and silently missing every one of them.
+    write_manifest(root, symbols, start, end, datetime.now(timezone.utc))
     got = source.symbols()
     missing = sorted(set(universe.fetch_list()) - got)
     print(f"  prices  OK       {len(source.events)} bars, {len(got)} symbols")

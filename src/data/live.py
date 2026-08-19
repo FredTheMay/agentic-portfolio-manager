@@ -20,6 +20,7 @@ conversion understates Rf and inflates every risk-adjusted metric downstream.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -41,6 +42,15 @@ ONE = Decimal(1)
 #: Where backfilled responses live. Gitignored.
 DEFAULT_CACHE_ROOT = Path("data/cache")
 
+#: Written by ``scripts/backfill.py``, read by everything that replays.
+#:
+#: A cache key is a hash of the full request, date range included, so a replay
+#: that guesses a window even one day different from the recorded one misses
+#: every entry and silently falls back to synthetic data. The manifest removes
+#: the guess: the recorder states what it fetched and the reader replays exactly
+#: that.
+MANIFEST_NAME = "manifest.json"
+
 #: FRED quotes DGS3MO as a percentage; the system works in decimal fractions.
 PERCENT = Decimal(100)
 
@@ -50,6 +60,59 @@ BILL_DAYS = 91
 
 class LiveDataError(RuntimeError):
     """Raised when recorded data is missing or unusable."""
+
+
+@dataclass(frozen=True, slots=True)
+class Manifest:
+    """What was recorded, so a replay can ask for precisely the same thing."""
+
+    symbols: tuple[str, ...]
+    start: datetime
+    end: datetime
+    recorded_at: datetime
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "symbols": list(self.symbols),
+                "start": self.start.isoformat(),
+                "end": self.end.isoformat(),
+                "recorded_at": self.recorded_at.isoformat(),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+
+
+def write_manifest(
+    root: Path, symbols: Sequence[str], start: datetime, end: datetime, recorded_at: datetime
+) -> Manifest:
+    manifest = Manifest(
+        symbols=tuple(symbols),
+        start=ensure_utc(start),
+        end=ensure_utc(end),
+        recorded_at=ensure_utc(recorded_at),
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    (root / MANIFEST_NAME).write_text(manifest.to_json(), encoding="utf-8")
+    return manifest
+
+
+def read_manifest(root: Path | None = None) -> Manifest | None:
+    """The recorded window, or ``None`` when nothing has been backfilled."""
+    path = (root or DEFAULT_CACHE_ROOT) / MANIFEST_NAME
+    if not path.is_file():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return Manifest(
+            symbols=tuple(raw["symbols"]),
+            start=ensure_utc(datetime.fromisoformat(raw["start"])),
+            end=ensure_utc(datetime.fromisoformat(raw["end"])),
+            recorded_at=ensure_utc(datetime.fromisoformat(raw["recorded_at"])),
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
 
 
 def cached_fetcher(cache_root: Path | None = None, offline: bool = True) -> CachingFetcher:

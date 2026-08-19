@@ -204,13 +204,14 @@ stays I/O-free), `src/api/store.py` (Lambda state), `src/agents/pipeline.py` and
 
 ## Status
 
-M0–M10 complete. 592 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
+M0–M10 complete. 597 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
 `src/cfa` and `src/risk`.
 
-**The numbers in RESULTS.md are from synthetic data** (`src/data/synthetic.py`) because no
-API keys are configured. They demonstrate the pipeline is complete, deterministic and
-internally consistent. They do **not** demonstrate that the strategy works, and RESULTS.md
-says so at the top. Do not quote them as if they were market results.
+**RESULTS.md now carries real market data** (Alpaca prices, EDGAR fundamentals, FRED rates,
+recorded via `make backfill`). Three caveats stated there and worth repeating: the universe
+is survivorship-biased, the window covers a single bull-market regime, and the strategy
+underperformed its benchmark with an insignificant alpha. `src/data/synthetic.py` remains
+the fallback when nothing has been recorded, and `make results` prints which source it used.
 
 The real-data path is built and wired: `make backfill` records EDGAR/FRED/Alpaca into
 `data/cache`, and `make results` then uses it automatically and says which source it used.

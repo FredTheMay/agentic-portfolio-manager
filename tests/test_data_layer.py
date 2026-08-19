@@ -365,24 +365,28 @@ def test_fred_rejects_a_response_without_observations() -> None:
 
 
 def test_fred_client_reads_a_value_as_of() -> None:
-    client = fred.FredClient(
-        StubFetcher(
-            {
-                f"{fred.OBSERVATIONS_URL}?file_type=json&output_type=4&series_id=T10Y3M": (
-                    GDP_VINTAGES
-                )
-            }
-        ),
-        api_key=None,
+    # UNRATE is in REVISED_SERIES, so it is requested across the full real-time
+    # window and each revision arrives as its own row.
+    canonical = (
+        f"{fred.OBSERVATIONS_URL}?file_type=json&output_type=1"
+        f"&realtime_end={fred.ALL_REALTIME_END}"
+        f"&realtime_start={fred.ALL_REALTIME_START}&series_id=UNRATE"
     )
-    assert client.value_as_of(fred.TERM_SPREAD, at(2024, 4, 30)) == D("2.1")
+    client = fred.FredClient(StubFetcher({canonical: GDP_VINTAGES}), api_key=None)
+    assert client.value_as_of(fred.UNEMPLOYMENT, at(2024, 4, 30)) == D("2.1")
+    assert client.value_as_of(fred.UNEMPLOYMENT, at(2024, 6, 1)) == D("1.6")
 
 
 def test_fred_api_key_is_not_part_of_the_request_when_absent() -> None:
     # A cached series must replay with no key at all.
+    canonical = (
+        f"{fred.OBSERVATIONS_URL}?file_type=json&output_type=1"
+        f"&realtime_end={fred.ALL_REALTIME_END}"
+        f"&realtime_start={fred.ALL_REALTIME_START}&series_id=UNRATE"
+    )
     stub = StubFetcher(
         {
-            f"{fred.OBSERVATIONS_URL}?file_type=json&output_type=4&series_id=UNRATE": {
+            canonical: {
                 "observations": [
                     {"realtime_start": "2024-02-02", "date": "2024-01-01", "value": "3.7"}
                 ]
@@ -540,7 +544,8 @@ def test_alpaca_client_requests_adjusted_bars() -> None:
     stub = StubFetcher(
         {
             f"{sources.ALPACA_BARS_URL}?adjustment=all&end=2024-01-05&feed=iex"
-            f"&start=2024-01-01&symbols=AGG,SPY&timeframe=1Day": ALPACA_PAYLOAD
+            f"&limit={sources.ALPACA_PAGE_LIMIT}&start=2024-01-01"
+            f"&symbols=AGG,SPY&timeframe=1Day": ALPACA_PAYLOAD
         }
     )
     client = sources.AlpacaBarClient(stub)
@@ -616,3 +621,114 @@ def test_alpaca_requests_carry_authentication_headers(monkeypatch: pytest.Monkey
     assert fetcher._headers["APCA-API-KEY-ID"] == "PKTEST"
     # The EDGAR contact must survive alongside the vendor headers.
     assert "User-Agent" in fetcher._headers
+
+
+def test_revised_and_unrevised_series_are_fetched_differently() -> None:
+    # FRED caps a response at ~2000 vintage dates. A daily series has one per
+    # business day and is rejected with a 400 if the full real-time window is
+    # requested, so daily rates are fetched at current real time and dated by
+    # observation. Revised monthly series get the full window.
+    from src.data.fred import REVISED_SERIES, CPI, THREE_MONTH_TREASURY, FredClient
+
+    assert CPI in REVISED_SERIES
+    assert THREE_MONTH_TREASURY not in REVISED_SERIES
+
+    seen: list[dict[str, str]] = []
+
+    class RecordingFetcher:
+        def get_json(self, url: str, params: dict[str, str] | None = None) -> object:
+            seen.append(dict(params or {}))
+            return {"observations": []}
+
+    client = FredClient(RecordingFetcher(), api_key=None)  # type: ignore[arg-type]
+    client.series(CPI)
+    client.series(THREE_MONTH_TREASURY)
+
+    assert "realtime_start" in seen[0], "a revised series needs the full vintage window"
+    assert "realtime_start" not in seen[1], "a daily series must not request it (400)"
+
+
+def test_an_unrevised_series_is_dated_by_observation() -> None:
+    # The response for these carries today's real-time window, not the original
+    # publication date, so realtime_start would wrongly read "published today"
+    # and every historical value would look invisible until now.
+    from datetime import timedelta as _td
+
+    from src.data.fred import parse_observations
+
+    payload = {
+        "observations": [
+            {"realtime_start": "2026-08-18", "realtime_end": "2026-08-18",
+             "date": "2020-06-01", "value": "0.14"},
+        ]
+    }
+    series = parse_observations(payload, publication_lag=_td(days=1))
+    assert series.as_of(at(2020, 6, 3)) is not None, "must be visible shortly after its date"
+    assert series.as_of(at(2020, 5, 1)) is None, "must not be visible before its date"
+
+
+def test_alpaca_bars_are_paged_to_completion() -> None:
+    # Alpaca caps a page at 1000 bars and returns next_page_token instead of
+    # the rest. Ignoring the token truncates a multi-symbol multi-year request
+    # to the first symbol or two — which reads as "this universe has no data".
+    # Cache keys canonicalize by sorting params, so page_token sorts between
+    # `limit` and `start` rather than being appended.
+    def url(token: str | None = None) -> str:
+        parts = {
+            "adjustment": "all",
+            "end": "2024-01-05",
+            "feed": "iex",
+            "limit": str(sources.ALPACA_PAGE_LIMIT),
+            "start": "2024-01-01",
+            "symbols": "AGG,SPY",
+            "timeframe": "1Day",
+        }
+        if token:
+            parts["page_token"] = token
+        query = "&".join(f"{k}={parts[k]}" for k in sorted(parts))
+        return f"{sources.ALPACA_BARS_URL}?{query}"
+
+    page_one = {
+        "bars": {"SPY": [ALPACA_PAYLOAD["bars"]["SPY"][0]]},
+        "next_page_token": "TOKEN2",
+    }
+    page_two = {
+        "bars": {"AGG": ALPACA_PAYLOAD["bars"]["AGG"]},
+        "next_page_token": None,
+    }
+    stub = StubFetcher({url(): page_one, url("TOKEN2"): page_two})
+
+    source = sources.AlpacaBarClient(stub).daily_bars(
+        ["SPY", "AGG"], at(2024, 1, 1), at(2024, 1, 5)
+    )
+    assert source.symbols() == {"SPY", "AGG"}, "the second page must be fetched"
+    assert len(stub.calls) == 2
+
+
+def test_alpaca_paging_terminates() -> None:
+    # A token loop that never ends must fail loudly rather than hang.
+    looping = {"bars": {}, "next_page_token": "SAME"}
+
+    class LoopingFetcher:
+        def get_json(self, url: str, params: dict[str, str] | None = None) -> object:
+            return looping
+
+    with pytest.raises(sources.SourceError, match="did not terminate"):
+        sources.AlpacaBarClient(LoopingFetcher()).daily_bars(  # type: ignore[arg-type]
+            ["SPY"], at(2024, 1, 1), at(2024, 1, 5)
+        )
+
+
+def test_sec_and_alpaca_disagree_on_class_share_tickers() -> None:
+    # SEC's ticker file has BRK-B where Alpaca sends BRK.B. Same instrument.
+    client = edgar.EdgarClient(
+        StubFetcher(
+            {
+                edgar.TICKER_MAP_URL: {
+                    "0": {"cik_str": 1067983, "ticker": "BRK-B", "title": "Berkshire"}
+                }
+            }
+        )
+    )
+    assert client.resolve_cik("BRK.B") == 1067983
+    assert client.resolve_cik("BRK-B") == 1067983

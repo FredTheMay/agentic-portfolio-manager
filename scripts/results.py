@@ -8,7 +8,7 @@ from decimal import Decimal
 from src.backtest.engine import BacktestConfig
 from src.backtest.metrics import summarize
 from src.backtest.walkforward import run_under_both_fill_models
-from src.data.live import DEFAULT_CACHE_ROOT, load_bars, universe_inputs
+from src.data.live import load_bars, read_manifest, universe_inputs
 from src.data.synthetic import BETAS, SECTORS, make_source
 from src.data.universe import load_universe
 from src.risk.ips import load_policy
@@ -25,13 +25,13 @@ def real_setup() -> tuple[object, ...] | None:
     table of synthetic numbers presented as market results is the single most
     misleading thing this project could produce.
     """
-    if not DEFAULT_CACHE_ROOT.exists():
+    manifest = read_manifest()
+    if manifest is None:
         return None
     try:
         universe = load_universe()
-        end = datetime.now(UTC) - timedelta(days=1)
-        start = end - timedelta(days=365 * 3)
-        source = load_bars(universe.fetch_list(), start, end, offline=True)
+        start, end = manifest.start, manifest.end
+        source = load_bars(manifest.symbols, start, end, offline=True)
         if not source.events:
             return None
         as_of = source.events[-1].timestamp

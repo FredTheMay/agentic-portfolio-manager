@@ -44,6 +44,14 @@ ALPACA_SECRET_ENV = "ALPACA_API_SECRET_KEY"
 #: `DailyBarSource` for why the DST caveat is acceptable for a daily strategy.
 US_EQUITY_CLOSE_UTC_HOUR = 21
 
+#: Alpaca's maximum page size. Its default is 1000, and a multi-symbol
+#: multi-year request silently stops there and returns a `next_page_token`
+#: instead — which reads as "this universe has no data" if the token is ignored.
+ALPACA_PAGE_LIMIT = 10_000
+
+#: Guard against an unterminated token loop.
+MAX_PAGES = 500
+
 
 class SourceError(RuntimeError):
     """Raised on malformed market data or an out-of-order stream."""
@@ -261,10 +269,31 @@ class AlpacaBarClient:
             # Split and dividend adjusted, so `adj_close` is meaningful.
             "adjustment": "all",
             "feed": self._feed,
+            "limit": str(ALPACA_PAGE_LIMIT),
         }
-        payload = self._fetcher.get_json(ALPACA_BARS_URL, params)
-        if not isinstance(payload, Mapping):
-            raise SourceError("Alpaca response was not a JSON object")
-        source = InMemoryEventSource.from_alpaca_payload(payload)
+        events: list[MarketEvent] = []
+        token: str | None = None
+        for _ in range(MAX_PAGES):
+            page = dict(params)
+            if token:
+                page["page_token"] = token
+            payload = self._fetcher.get_json(ALPACA_BARS_URL, page)
+            if not isinstance(payload, Mapping):
+                raise SourceError("Alpaca response was not a JSON object")
+
+            # A page whose `bars` is null is legitimate at the end of a range.
+            if isinstance(payload.get("bars"), Mapping):
+                events.extend(events_from_alpaca_payload(payload))
+
+            next_token = payload.get("next_page_token")
+            if not next_token:
+                break
+            token = str(next_token)
+        else:
+            raise SourceError(
+                f"Alpaca paging did not terminate after {MAX_PAGES} pages"
+            )
+
+        source = InMemoryEventSource.from_events(events)
         assert_ordered(source.events)
         return source

@@ -190,13 +190,21 @@ class EdgarClient:
         self._ticker_to_cik: dict[str, int] | None = None
 
     def resolve_cik(self, symbol: str) -> int:
-        """Map a ticker to its SEC CIK number."""
+        """Map a ticker to its SEC CIK number.
+
+        Vendors disagree on how to write a class share: SEC's ticker file has
+        ``BRK-B`` where Alpaca sends ``BRK.B``. Both forms are tried rather than
+        forcing every caller to know which convention it is holding.
+        """
         if self._ticker_to_cik is None:
             self._ticker_to_cik = self._load_ticker_map()
-        cik = self._ticker_to_cik.get(symbol.upper())
-        if cik is None:
-            raise EdgarError(f"no CIK on file for ticker {symbol!r}")
-        return cik
+
+        wanted = symbol.upper()
+        for candidate in (wanted, wanted.replace(".", "-"), wanted.replace("-", ".")):
+            cik = self._ticker_to_cik.get(candidate)
+            if cik is not None:
+                return cik
+        raise EdgarError(f"no CIK on file for ticker {symbol!r}")
 
     def _load_ticker_map(self) -> dict[str, int]:
         payload = self._fetcher.get_json(TICKER_MAP_URL)
