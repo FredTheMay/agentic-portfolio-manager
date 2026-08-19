@@ -293,46 +293,41 @@ def create_app(state: DashboardState) -> FastAPI:
 
 
 def app_from_environment() -> FastAPI:
-    """Build an app over a freshly computed synthetic run.
+    """Build an app over the best data available.
 
-    Used by ``make serve`` and the Lambda handler. With no API keys configured
-    there is nothing recorded to replay, so the dashboard shows a synthetic run
-    and labels it as such in ``/api/status``.
+    Real recorded market data when ``make backfill`` has run, synthetic
+    otherwise — the same decision the results script and the scheduled Lambda
+    make, taken once in :func:`src.data.live.resolve_setup` so the three cannot
+    disagree about what they are displaying. ``/api/status`` reports which.
     """
-    from datetime import timedelta
-
     from src.backtest.engine import BacktestConfig, run_backtest
+    from src.data.live import resolve_setup
     from src.execution.fill_models import SpreadCrossFillModel
     from src.execution.simulated import SimulatedExecutor
     from src.risk.ips import load_policy
-    from src.time.clock import UTC
-    from src.data.synthetic import BETAS, SECTORS, make_source
 
-    from datetime import datetime
-
-    start = datetime(2022, 1, 3, 21, tzinfo=UTC)
+    setup = resolve_setup()
     config = BacktestConfig(
-        start=start,
-        end=start + timedelta(days=730),
-        initial_cash=Decimal("100000.00"),
-        symbols=(
-            "AAA", "BBB", "CCC", "DDD", "EEE", "FFF",
-            "GGG", "HHH", "III", "JJJ", "KKK", "LLL",
-        ),
-        benchmark_symbol="SPY",
+        start=setup.start,
+        end=setup.end,
+        initial_cash=Decimal(os.environ.get("INITIAL_CASH", "100000.00")),
+        symbols=setup.symbols,
+        benchmark_symbol=setup.benchmark,
         estimation_window=100,
+        market_return=setup.market_return,
+        risk_free_rate=setup.risk_free_rate,
     )
     executor = SimulatedExecutor(fill_model=SpreadCrossFillModel())
     result = run_backtest(
-        config, make_source(days=760), executor, load_policy(), SECTORS, BETAS
+        config, setup.source, executor, load_policy(), setup.sectors, setup.betas
     )
     return create_app(
         DashboardState.from_result(
             result,
             capabilities=executor.capabilities(),
-            sectors=SECTORS,
+            sectors=setup.sectors,
             llm_provider=os.environ.get("LLM_PROVIDER", "null"),
             executor=os.environ.get("EXECUTOR", "simulated_spread"),
-            data_source="synthetic (no API keys configured)",
+            data_source=setup.data_source,
         )
     )

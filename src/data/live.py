@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -34,7 +34,7 @@ from src.data.events import BarPayload, MarketEvent
 from src.data.fred import THREE_MONTH_TREASURY, FredClient
 from src.data.sources import AlpacaBarClient, InMemoryEventSource, live_alpaca_fetcher
 from src.data.universe import Universe
-from src.time.clock import ensure_utc
+from src.time.clock import UTC, ensure_utc
 
 ZERO = Decimal(0)
 ONE = Decimal(1)
@@ -264,3 +264,98 @@ def universe_inputs(
     estimates = estimate_betas(source, universe.benchmark_equity, rate)
     betas = {symbol: est.beta for symbol, est in estimates.items()}
     return universe.sectors, betas, rate, market_return(estimates, rate)
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestSetup:
+    """Everything a run needs, plus a label saying where the data came from.
+
+    The label is not decoration. Three callers — ``make results``, the
+    dashboard, and the scheduled Lambda — each need the same "real if recorded,
+    else synthetic" decision, and three copies of it would eventually disagree
+    about which one they were showing. Presenting synthetic numbers as market
+    results is the single most misleading thing this project could do, so the
+    choice is made once and carries its own provenance.
+    """
+
+    source: InMemoryEventSource
+    symbols: tuple[str, ...]
+    sectors: Mapping[str, str]
+    betas: Mapping[str, Decimal]
+    benchmark: str
+    start: datetime
+    end: datetime
+    risk_free_rate: Decimal
+    market_return: Decimal
+    data_source: str
+    is_real: bool
+
+
+def _synthetic_setup() -> BacktestSetup:
+    from src.data.synthetic import BETAS, SECTORS, make_source
+
+    start = datetime(2022, 1, 3, 21, tzinfo=UTC)
+    return BacktestSetup(
+        source=make_source(days=760),
+        symbols=(
+            "AAA", "BBB", "CCC", "DDD", "EEE", "FFF",
+            "GGG", "HHH", "III", "JJJ", "KKK", "LLL",
+        ),
+        sectors=SECTORS,
+        betas=BETAS,
+        benchmark="SPY",
+        start=start,
+        end=start + timedelta(days=730),
+        risk_free_rate=Decimal("0.04"),
+        market_return=Decimal("0.09"),
+        data_source="synthetic (nothing recorded — run `make backfill`)",
+        is_real=False,
+    )
+
+
+def resolve_setup(
+    cache_root: Path | None = None,
+    minimum_symbols: int = 10,
+) -> BacktestSetup:
+    """Recorded market data when available, synthetic otherwise.
+
+    ``minimum_symbols`` defaults to ten because the IPS caps any name at 10%,
+    so a fully invested portfolio needs at least that many holdings with usable
+    betas; below that the constrained frontier is infeasible and the optimizer
+    would raise on every cycle.
+    """
+    from src.data.universe import load_universe
+
+    manifest = read_manifest(cache_root)
+    if manifest is None:
+        return _synthetic_setup()
+
+    try:
+        universe = load_universe()
+        source = load_bars(
+            manifest.symbols, manifest.start, manifest.end, cache_root, offline=True
+        )
+        if not source.events:
+            return _synthetic_setup()
+
+        as_of = source.events[-1].timestamp
+        sectors, betas, rate, market = universe_inputs(universe, source, as_of, cache_root)
+        symbols = tuple(s for s in universe.tradable() if s in betas)
+        if len(symbols) < minimum_symbols:
+            return _synthetic_setup()
+    except Exception:  # noqa: BLE001 - absent or partial recording is a normal state
+        return _synthetic_setup()
+
+    return BacktestSetup(
+        source=source,
+        symbols=symbols,
+        sectors=sectors,
+        betas=betas,
+        benchmark=universe.benchmark_equity,
+        start=manifest.start,
+        end=manifest.end,
+        risk_free_rate=rate,
+        market_return=market,
+        data_source=f"real market data (recorded {manifest.recorded_at.date().isoformat()})",
+        is_real=True,
+    )

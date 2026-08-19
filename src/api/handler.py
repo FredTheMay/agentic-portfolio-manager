@@ -66,35 +66,34 @@ def run_cycle(
     worse than one that reports it is running on a simulation.
     """
     from src.backtest.engine import BacktestConfig, run_backtest
+    from src.data.live import resolve_setup
     from src.execution import get_executor
     from src.execution.simulated import SimulatedExecutor
     from src.risk.ips import load_policy
-    from src.data.synthetic import BETAS, SECTORS, make_source
 
     active_store = store or build_store()
     now = (clock or WallClock()).now()
     audit = AuditLog()
 
     executor = get_executor()
+    setup = resolve_setup()
     config = BacktestConfig(
-        start=now - timedelta(days=730),
-        end=now,
+        start=setup.start,
+        end=setup.end,
         initial_cash=Decimal(os.environ.get("INITIAL_CASH", "100000.00")),
-        symbols=(
-            "AAA", "BBB", "CCC", "DDD", "EEE", "FFF",
-            "GGG", "HHH", "III", "JJJ", "KKK", "LLL",
-        ),
-        benchmark_symbol="SPY",
+        symbols=setup.symbols,
+        benchmark_symbol=setup.benchmark,
         estimation_window=100,
+        market_return=setup.market_return,
+        risk_free_rate=setup.risk_free_rate,
     )
-    source = make_source(days=760, start=config.start)
     result = run_backtest(
         config,
-        source,
+        setup.source,
         executor if isinstance(executor, SimulatedExecutor) else SimulatedExecutor(),
         load_policy(),
-        SECTORS,
-        BETAS,
+        setup.sectors,
+        setup.betas,
     )
 
     latest = result.cycles[-1] if result.cycles else None
@@ -113,7 +112,7 @@ def run_cycle(
         "cycles": len(result.cycles),
         "executed": len(result.executed),
         "vetoed": len(result.vetoed),
-        "data_source": "synthetic (no recorded market data)",
+        "data_source": setup.data_source,
     }
 
     audit.record(

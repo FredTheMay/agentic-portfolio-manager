@@ -70,11 +70,27 @@ class OfflineError(FetchError):
     """Offline mode was asked for a response that is not in the cache."""
 
 
+#: Query parameters excluded from the canonical form of a request.
+#:
+#: Two reasons, both load-bearing. A credential must not decide a cache key, or
+#: a replay under a different (or absent) key misses every entry and silently
+#: falls back — which is exactly what happened before this existed. And the
+#: canonical form appears verbatim in error messages, so including a key would
+#: put it into logs, tracebacks, and CI output.
+SENSITIVE_PARAMS = frozenset({"api_key", "apikey", "token", "access_token", "key"})
+
+
 def _canonical(url: str, params: Mapping[str, str] | None) -> str:
-    """Stable text form of a request, so the cache key does not depend on dict order."""
+    """Stable text form of a request, with credentials excluded.
+
+    Independent of dict ordering, and independent of which key made the call.
+    """
     if not params:
         return url
-    ordered = "&".join(f"{k}={params[k]}" for k in sorted(params))
+    visible = {k: v for k, v in params.items() if k.lower() not in SENSITIVE_PARAMS}
+    if not visible:
+        return url
+    ordered = "&".join(f"{k}={visible[k]}" for k in sorted(visible))
     return f"{url}?{ordered}"
 
 

@@ -77,9 +77,14 @@ def test_a_scheduled_cycle_persists_its_result() -> None:
 
 def test_a_scheduled_cycle_says_what_data_it_used() -> None:
     # A cycle that silently invented data would be far worse than one that
-    # reports it is running on a simulation.
+    # reports it is running on a simulation. The claim must match reality
+    # whichever source is available, so it is compared against the resolver
+    # rather than hardcoded to either answer.
+    from src.data.live import resolve_setup
+
     payload = run_cycle(store=InMemoryStateStore(), clock=SimulationClock(NOW))
-    assert "synthetic" in payload["data_source"]
+    assert payload["data_source"] == resolve_setup().data_source
+    assert payload["data_source"], "the cycle must always state its data source"
 
 
 def test_replaying_a_cycle_is_idempotent() -> None:

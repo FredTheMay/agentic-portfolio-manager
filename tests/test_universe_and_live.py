@@ -190,3 +190,58 @@ def test_the_market_return_assumption_is_a_premium_over_the_risk_free_rate() -> 
     estimates: dict[str, BetaEstimate] = {}
     assert market_return(estimates, D("0.04")) == D("0.09")
     assert market_return(estimates, D("0.02")) == D("0.07")
+
+
+# ===========================================================================
+# The shared setup resolver
+# ===========================================================================
+
+
+def test_the_resolver_falls_back_to_synthetic_and_labels_it(tmp_path: Path) -> None:
+    # Three callers need the same "real if recorded, else synthetic" decision.
+    # Three copies of it would eventually disagree about which they were showing.
+    from src.data.live import resolve_setup
+
+    setup = resolve_setup(cache_root=tmp_path)
+    assert setup.is_real is False
+    assert "synthetic" in setup.data_source
+    assert len(setup.symbols) >= 10, "the 10% position cap needs ten holdings"
+
+
+def test_the_synthetic_fallback_is_self_consistent(tmp_path: Path) -> None:
+    from src.data.live import resolve_setup
+
+    setup = resolve_setup(cache_root=tmp_path)
+    assert set(setup.symbols) <= set(setup.betas)
+    assert set(setup.symbols) <= set(setup.sectors)
+    assert setup.end > setup.start
+
+
+def test_credentials_never_decide_a_cache_key() -> None:
+    # A replay under a different (or absent) key must hit the same entries.
+    # Before this, every keyless replay missed and silently fell back to
+    # synthetic data while reporting real.
+    from src.data.cache import cache_key
+
+    with_key = cache_key("https://api.test/x", {"series_id": "DGS3MO", "api_key": "SECRET"})
+    without = cache_key("https://api.test/x", {"series_id": "DGS3MO"})
+    other_key = cache_key("https://api.test/x", {"series_id": "DGS3MO", "api_key": "OTHER"})
+
+    assert with_key == without == other_key
+
+
+def test_a_credential_never_appears_in_an_error_message() -> None:
+    # The canonical request form is quoted verbatim in OfflineError, which ends
+    # up in logs, tracebacks and CI output.
+    from src.data.cache import CachingFetcher, OfflineError, ResponseCache
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fetcher = CachingFetcher(ResponseCache(root=Path(tmp)), offline=True)
+        try:
+            fetcher.get_json("https://api.test/x", {"api_key": "SUPERSECRET", "id": "A"})
+        except OfflineError as exc:
+            assert "SUPERSECRET" not in str(exc)
+            assert "id=A" in str(exc), "non-sensitive params should still be shown"
+        else:
+            raise AssertionError("expected an OfflineError")
