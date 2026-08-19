@@ -1,11 +1,11 @@
-"""Golden tests for the CFA Level I core (SPEC §6).
+"""Golden tests for the CFA Level I core.
 
 Every expected value here is hand-computed from the formula in the spec and
 written as a literal. Nothing is asserted against the implementation's own
 output — a test that computes the answer the same way the code does proves only
 that the code is self-consistent.
 
-Sections follow SPEC §6.1 through §6.8.
+Sections follow through.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def at(year: int, month: int, day: int) -> datetime:
 
 
 # ===========================================================================
-# §6.1 Quantitative Methods — src/cfa/returns.py
+# quantitative Methods — src/cfa/returns.py
 # ===========================================================================
 
 
@@ -86,7 +86,7 @@ def test_money_weighted_return_multi_period() -> None:
 
 
 def test_money_weighted_return_measures_time_to_the_second() -> None:
-    # SPEC §4.2: timestamps are instants, never dates. Truncating year
+    # Timestamps are instants, never dates. Truncating year
     # fractions to whole days made these two series indistinguishable, which
     # silently assumed daily data in the one metric most exposed to timing.
     at_midnight = [(at(2023, 1, 1), D("-100")), (at(2023, 6, 30), D("110"))]
@@ -127,7 +127,7 @@ def test_money_weighted_return_requires_a_sign_change() -> None:
 
 
 def test_twr_and_mwr_diverge_on_mid_period_cash_flow() -> None:
-    # SPEC §6.1: GIPS requires TWR because it isolates the strategy from the
+    # GIPS requires TWR because it isolates the strategy from the
     # timing of external cash flows. This is the case that shows why.
     #
     # +100% then -50%: TWR = 2.0 * 0.5 - 1 = 0. But contributing more money
@@ -150,7 +150,7 @@ def test_geometric_mean_return() -> None:
 
 
 def test_geometric_mean_return_two_periods() -> None:
-    # sqrt(1.44) - 1 = 1.2 - 1 = 0.20
+    # Sqrt(1.44) - 1 = 1.2 - 1 = 0.20
     approx(ret.geometric_mean_return([D("0.44"), D("0")]), "0.20")
 
 
@@ -165,7 +165,7 @@ def test_geometric_mean_never_exceeds_arithmetic_mean() -> None:
 
 
 def test_sample_variance_and_standard_deviation() -> None:
-    # mean 0.20; deviations -0.1, 0, +0.1; squares sum to 0.02
+    # Mean 0.20; deviations -0.1, 0, +0.1; squares sum to 0.02
     # sample variance = 0.02 / (3 - 1) = 0.01; sd = 0.10
     series = [D("0.10"), D("0.20"), D("0.30")]
     assert ret.sample_variance(series) == D("0.01")
@@ -185,7 +185,7 @@ def test_sample_variance_needs_two_observations() -> None:
 
 
 def test_covariance_and_correlation() -> None:
-    # x = 1,2,3 (mean 2); y = 2,4,6 (mean 4)
+    # X = 1,2,3 (mean 2); y = 2,4,6 (mean 4)
     # cov = ((-1)(-2) + 0 + (1)(2)) / 2 = 4/2 = 2
     # sd_x = 1, sd_y = 2  ->  rho = 2 / (1 * 2) = 1.0 (perfectly linear)
     x = [D("1"), D("2"), D("3")]
@@ -213,7 +213,7 @@ def test_coefficient_of_variation() -> None:
 def test_downside_deviation() -> None:
     # Target semideviation about MAR = 0. Only returns below MAR contribute,
     # but the denominator is n - 1 over all observations (CFA convention).
-    # deviations below: -0.10, -0.10 -> 0.01 + 0.01 = 0.02
+    # Deviations below: -0.10, -0.10 -> 0.01 + 0.01 = 0.02
     # 0.02 / (3 - 1) = 0.01 -> sqrt = 0.10
     approx(ret.downside_deviation([D("0.10"), D("-0.10"), D("-0.10")], D("0")), "0.10")
 
@@ -252,23 +252,23 @@ def test_safety_first_ratio() -> None:
 
 
 def test_safety_first_ratio_prefers_the_higher_value() -> None:
-    # SPEC §6.1 [CORRECTED]: Roy's criterion is maximized, not minimized.
+    # Roy's criterion is maximized, not minimized.
     safer = ret.safety_first_ratio(D("0.12"), D("0.03"), D("0.10"))
     riskier = ret.safety_first_ratio(D("0.12"), D("0.03"), D("0.30"))
     assert safer > riskier
 
 
 def test_ols_regression_textbook_values() -> None:
-    # x = 1..5, y = 2,4,5,4,5. Hand-computed:
-    #   mean x = 3, mean y = 4
-    #   Sxy = (-2)(-2) + (-1)(0) + (0)(1) + (1)(0) + (2)(1) = 6
-    #   Sxx = 4 + 1 + 0 + 1 + 4 = 10        Syy = 4 + 0 + 1 + 0 + 1 = 6
+    # X = 1..5, y = 2,4,5,4,5. Hand-computed:
+    #   Mean x = 3, mean y = 4
+    #   sxy = (-2)(-2) + (-1)(0) + (0)(1) + (1)(0) + (2)(1) = 6
+    #   sxx = 4 + 1 + 0 + 1 + 4 = 10        Syy = 4 + 0 + 1 + 0 + 1 = 6
     #   slope     = 6 / 10 = 0.6
     #   intercept = 4 - 0.6(3) = 2.2
     #   SSR = slope^2 * Sxx = 3.6   SSE = 6 - 3.6 = 2.4   R^2 = 3.6/6 = 0.6
-    #   s^2 = SSE/(n-2) = 0.8
-    #   SE(slope)     = sqrt(0.8/10)                = 0.2828427125
-    #   SE(intercept) = sqrt(0.8 * (1/5 + 9/10))    = 0.9380831520
+    #   S^2 = SSE/(n-2) = 0.8
+    #   sE(slope)     = sqrt(0.8/10)                = 0.2828427125
+    #   sE(intercept) = sqrt(0.8 * (1/5 + 9/10))    = 0.9380831520
     #   t(intercept)  = 2.2 / 0.9380831520          = 2.3452078799
     y = [D("2"), D("4"), D("5"), D("4"), D("5")]
     x = [D("1"), D("2"), D("3"), D("4"), D("5")]
@@ -295,7 +295,7 @@ def test_ols_regression_perfect_fit_has_unit_r_squared() -> None:
 
 
 def test_estimate_beta_regresses_excess_returns() -> None:
-    # SPEC §6.2 [CORRECTED]: beta by regression, not Cov/Var, so R^2 and the
+    # Beta by regression, not Cov/Var, so R^2 and the
     # standard errors come with it. An asset that moves 1.5x the market with no
     # idiosyncratic noise has beta 1.5 and R^2 = 1.
     market = [D("0.02"), D("-0.01"), D("0.03"), D("0.00"), D("0.015")]
@@ -307,7 +307,7 @@ def test_estimate_beta_regresses_excess_returns() -> None:
 
 
 def test_estimate_beta_reports_alpha_significance() -> None:
-    # SPEC §6.1: the t-stat on the intercept is the only honest way to say
+    # The t-stat on the intercept is the only honest way to say
     # whether Jensen's alpha is distinguishable from zero.
     market = [D("0.02"), D("-0.01"), D("0.03"), D("0.00"), D("0.015")]
     asset = [D("0.03"), D("-0.015"), D("0.045"), D("0.005"), D("0.0225")]
@@ -321,7 +321,7 @@ def test_regression_needs_more_points_than_parameters() -> None:
 
 
 # ===========================================================================
-# §6.2 Portfolio Management — src/cfa/portfolio.py
+# portfolio Management — src/cfa/portfolio.py
 # ===========================================================================
 
 # Two-asset workhorse: sd 20% and 10%, uncorrelated.
@@ -345,7 +345,7 @@ def test_expected_portfolio_return_rejects_length_mismatch() -> None:
 
 
 def test_two_asset_variance() -> None:
-    # w1^2 s1^2 + w2^2 s2^2 + 2 w1 w2 s1 s2 rho
+    # W1^2 s1^2 + w2^2 s2^2 + 2 w1 w2 s1 s2 rho
     # = 0.36(0.04) + 0.16(0.01) + 2(0.6)(0.4)(0.20)(0.10)(0.5)
     # = 0.0144 + 0.0016 + 0.0048 = 0.0208
     variance = pf.two_asset_variance(D("0.6"), D("0.4"), D("0.20"), D("0.10"), D("0.5"))
@@ -353,7 +353,7 @@ def test_two_asset_variance() -> None:
 
 
 def test_portfolio_variance_matches_the_two_asset_formula() -> None:
-    # SPEC §6.2 names the two-asset variance as the unit-test check on w'Sigma w.
+    # Names the two-asset variance as the unit-test check on w'Sigma w.
     weights = [D("0.6"), D("0.4")]
     quadratic_form = pf.portfolio_variance(weights, COV_2_CORRELATED)
     closed_form = pf.two_asset_variance(D("0.6"), D("0.4"), D("0.20"), D("0.10"), D("0.5"))
@@ -362,7 +362,7 @@ def test_portfolio_variance_matches_the_two_asset_formula() -> None:
 
 
 def test_portfolio_standard_deviation() -> None:
-    # sqrt(0.0208) = 0.1442220510...
+    # Sqrt(0.0208) = 0.1442220510...
     sd = pf.portfolio_standard_deviation([D("0.6"), D("0.4")], COV_2_CORRELATED)
     approx(sd, "0.1442220510", places=9)
 
@@ -403,9 +403,9 @@ def test_minimum_variance_portfolio_is_the_global_minimum() -> None:
 
 
 def test_tangency_portfolio() -> None:
-    # w proportional to Sigma^-1 (mu - rf 1)
+    # W proportional to Sigma^-1 (mu - rf 1)
     #   excess = [0.08, 0.03];  Sigma^-1 = [[25, 0], [0, 100]]
-    #   Sigma^-1 excess = [2, 3];  normalize by 5 -> [0.4, 0.6]
+    #   sigma^-1 excess = [2, 3];  normalize by 5 -> [0.4, 0.6]
     weights = pf.tangency_portfolio(MU_2, COV_2, D("0.02"))
     approx(weights[0], "0.4", places=9)
     approx(weights[1], "0.6", places=9)
@@ -413,7 +413,7 @@ def test_tangency_portfolio() -> None:
 
 def test_tangency_portfolio_maximizes_the_sharpe_ratio() -> None:
     # E(Rp) = 0.4(0.10) + 0.6(0.05) = 0.07;  var = 0.16(0.04) + 0.36(0.01) = 0.01
-    # Sharpe = (0.07 - 0.02) / 0.10 = 0.5
+    # sharpe = (0.07 - 0.02) / 0.10 = 0.5
     rf = D("0.02")
     weights = pf.tangency_portfolio(MU_2, COV_2, rf)
     best = pf.sharpe_ratio(
@@ -492,7 +492,7 @@ def test_capital_market_line() -> None:
 
 
 def test_jensens_alpha() -> None:
-    # alpha = Rp - [Rf + beta(Rm - Rf)] = 0.13 - 0.114 = 0.016
+    # Alpha = Rp - [Rf + beta(Rm - Rf)] = 0.13 - 0.114 = 0.016
     approx(pf.jensens_alpha(D("0.13"), D("0.03"), D("1.2"), D("0.10")), "0.016")
 
 
@@ -527,7 +527,7 @@ def test_information_ratio() -> None:
 
 
 def test_risk_decomposition() -> None:
-    # systematic  = beta^2 sd_m^2 = 1.44(0.0225) = 0.0324
+    # Systematic  = beta^2 sd_m^2 = 1.44(0.0225) = 0.0324
     # total       = 0.20^2 = 0.04
     # unsystematic= 0.04 - 0.0324 = 0.0076
     decomposition = pf.risk_decomposition(D("1.2"), D("0.15"), D("0.20"))
@@ -551,7 +551,7 @@ def test_risk_decomposition_rejects_impossible_inputs() -> None:
         pf.risk_decomposition(D("2.0"), D("0.20"), D("0.10"))
 
 
-# --- Ledoit-Wolf shrinkage (SPEC §6.2 [CORRECTED]) -------------------------
+# --- Ledoit-Wolf shrinkage -------------------------
 
 # 6 observations of 4 assets: fewer observations than a stable 4x4 estimate
 # needs, which is exactly the regime where the sample matrix misbehaves.
@@ -604,22 +604,22 @@ def test_sample_covariance_matrix_matches_pairwise_covariance() -> None:
 
 
 # ===========================================================================
-# §6.4 Financial Statement Analysis — src/cfa/ratios.py
+# financial Statement Analysis — src/cfa/ratios.py
 # ===========================================================================
 
 # One consistent set of statements, used by every ratio test below.
 #
 #   Income statement            Balance sheet (averages)
 #   -----------------------     ------------------------------
-#   Revenue          1,000      Total assets           2,000
+#   revenue          1,000      Total assets           2,000
 #   COGS               600      Total equity             800
-#   Gross profit       400      Total debt               600
-#   Operating exp.     200      Inventory                200
+#   gross profit       400      Total debt               600
+#   operating exp.     200      Inventory                200
 #   EBIT               200      Receivables              125
-#   Interest            50      Cash                     100
+#   interest            50      Cash                     100
 #   EBT                150      ST investments            50
-#   Tax                 45      Current assets           500
-#   Net income         105      Current liabilities      250
+#   tax                 45      Current assets           500
+#   net income         105      Current liabilities      250
 #
 #   CFO 180
 
@@ -647,7 +647,7 @@ def test_current_ratio() -> None:
 def test_quick_ratio_excludes_inventory() -> None:
     # (cash + short-term investments + receivables) / current liabilities
     # = (100 + 50 + 150) / 250 = 1.2
-    # Below the current ratio of 2.0 precisely because inventory is dropped.
+    # below the current ratio of 2.0 precisely because inventory is dropped.
     approx(rt.quick_ratio(D("100"), D("50"), D("150"), D("250")), "1.2")
 
 
@@ -702,12 +702,12 @@ def test_inventory_turnover() -> None:
 
 
 def test_receivables_turnover() -> None:
-    # revenue / average receivables = 1000 / 125 = 8.0
+    # Revenue / average receivables = 1000 / 125 = 8.0
     assert rt.receivables_turnover(REVENUE, AVG_RECEIVABLES) == D("8")
 
 
 def test_total_asset_turnover() -> None:
-    # revenue / average total assets = 1000 / 2000 = 0.5
+    # Revenue / average total assets = 1000 / 2000 = 0.5
     assert rt.total_asset_turnover(REVENUE, AVG_ASSETS) == D("0.5")
 
 
@@ -728,7 +728,7 @@ def test_dupont_three_step_reconciles_with_direct_roe() -> None:
 
 
 def test_dupont_five_step_components() -> None:
-    # tax burden     = NI / EBT   = 105 / 150 = 0.70
+    # Tax burden     = NI / EBT   = 105 / 150 = 0.70
     # interest burden= EBT / EBIT = 150 / 200 = 0.75
     # EBIT margin    = EBIT / rev = 200 / 1000 = 0.20
     # asset turnover = 0.5        equity multiplier = 2.5
@@ -749,7 +749,7 @@ def test_dupont_five_step_agrees_with_three_step() -> None:
 
 
 def test_accruals_ratio_is_negative_when_cash_exceeds_earnings() -> None:
-    # SPEC §6.4 [CORRECTED]: (NI - CFO) / average total assets
+    # (NI - CFO) / average total assets
     # = (105 - 180) / 2000 = -0.0375. Cash backs the earnings — good quality.
     approx(rt.accruals_ratio(NET_INCOME, CFO, AVG_ASSETS), "-0.0375")
 
@@ -780,7 +780,7 @@ def test_ratios_reject_zero_denominators() -> None:
 
 
 # ===========================================================================
-# §6.5 Equity Investments — src/cfa/valuation.py
+# equity Investments — src/cfa/valuation.py
 # ===========================================================================
 
 
@@ -792,14 +792,14 @@ def test_gordon_growth_value() -> None:
 
 
 def test_gordon_growth_returns_none_when_growth_reaches_the_discount_rate() -> None:
-    # SPEC §6.5 guard. At g >= r the geometric series diverges: the model says
+    # Guard. At g >= r the geometric series diverges: the model says
     # "infinite value", which is a modelling failure, not a buy signal.
     assert val.gordon_growth_value(D("2.00"), D("0.05"), D("0.05")) is None
     assert val.gordon_growth_value(D("2.00"), D("0.05"), D("0.06")) is None
 
 
 def test_gordon_growth_composes_with_capm() -> None:
-    # SPEC §6.5: "with r from CAPM".
+    # "with r from CAPM".
     required = pf.capm_expected_return(D("0.03"), D("1.0"), D("0.10"))  # = 0.10
     value = val.gordon_growth_value(D("2.00"), required, D("0.05"))
     assert value is not None
@@ -807,7 +807,7 @@ def test_gordon_growth_composes_with_capm() -> None:
 
 
 def test_sustainable_growth_rate() -> None:
-    # g = (1 - payout) x ROE = 0.60 x 0.15 = 0.09
+    # G = (1 - payout) x ROE = 0.60 x 0.15 = 0.09
     approx(val.sustainable_growth_rate(D("0.40"), D("0.15")), "0.09")
 
 
@@ -817,7 +817,7 @@ def test_sustainable_growth_is_zero_at_full_payout() -> None:
 
 
 def test_justified_leading_pe() -> None:
-    # SPEC §6.5 [CORRECTED]: P/E1 = payout / (r - g) = 0.40 / 0.05 = 8.0
+    # P/E1 = payout / (r - g) = 0.40 / 0.05 = 8.0
     value = val.justified_leading_pe(D("0.40"), D("0.10"), D("0.05"))
     assert value is not None
     approx(value, "8.0")
@@ -844,7 +844,7 @@ def test_justified_pe_guards_on_growth() -> None:
 
 
 def test_enterprise_value() -> None:
-    # SPEC §6.5 [CORRECTED]: EV = market cap + total debt - cash
+    # EV = market cap + total debt - cash
     # = 1000 + 400 - 150 = 1250
     assert val.enterprise_value(D("1000"), D("400"), D("150")) == D("1250")
 
@@ -892,7 +892,7 @@ def test_valuation_hierarchy_prefers_ddm_for_dividend_payers() -> None:
 
 
 def test_valuation_hierarchy_falls_back_to_fcfe_for_non_payers() -> None:
-    # SPEC §6.5 [CORRECTED]: most of a large-cap tech universe pays no
+    # Most of a large-cap tech universe pays no
     # dividend, so DDM returns None for the majority of names. Without a
     # fallback the model would silently have no opinion on most of the universe.
     result = val.value_equity(
@@ -940,12 +940,12 @@ def test_valuation_hierarchy_reports_when_growth_breaks_the_model() -> None:
 
 
 # ===========================================================================
-# §6.6 Fixed Income — src/cfa/fixed_income.py
+# fixed Income — src/cfa/fixed_income.py
 # ===========================================================================
 
 # Reference bond: 3-year, 6% annual coupon, priced at par (YTM = 6%).
 #
-#   t   CF      PV at 6%        t x PV          t(t+1) x PV
+#   T   CF      PV at 6%        t x PV          t(t+1) x PV
 #   1     60     56.60377358     56.60377358      113.20754716
 #   2     60     53.39978640    106.79957280      320.39871840
 #   3   1060    889.99644002   2669.98932006    10679.95728024
@@ -953,8 +953,8 @@ def test_valuation_hierarchy_reports_when_growth_breaks_the_model() -> None:
 #              1000.00000000   2833.39266644    11113.56354580
 #
 #   Macaulay  = 2833.39266644 / 1000            = 2.83339267
-#   Modified  = 2.83339267 / 1.06               = 2.67301195
-#   Convexity = 11113.5635458 / (1000 x 1.1236) = 9.89103200
+#   modified  = 2.83339267 / 1.06               = 2.67301195
+#   convexity = 11113.5635458 / (1000 x 1.1236) = 9.89103200
 
 
 def test_bond_priced_at_par_when_coupon_equals_yield() -> None:
@@ -991,7 +991,7 @@ def test_yield_to_maturity_of_a_par_bond_is_its_coupon() -> None:
 
 
 def test_current_yield() -> None:
-    # annual coupon / price = 60 / 800 = 0.075
+    # Annual coupon / price = 60 / 800 = 0.075
     approx(fi.current_yield(D("60"), D("800")), "0.075")
 
 
@@ -1051,7 +1051,7 @@ def test_portfolio_duration_is_a_weighted_average() -> None:
     approx(fi.portfolio_duration([D("0.4"), D("0.6")], [D("3"), D("7")]), "5.4")
 
 
-# --- Money-market yield conversions (SPEC §6.6 [CORRECTED]) ----------------
+# --- Money-market yield conversions ----------------
 #
 # 180-day bill, face 100, price 98.
 
@@ -1074,7 +1074,7 @@ def test_money_market_yield() -> None:
 def test_effective_annual_yield() -> None:
     # (1 + HPY)^(365/t) - 1 = 1.0204081633^(365/180) - 1
     #   ln(1.0204081633)        = 0.0202027077
-    #   x 365/180 (= 2.0277778) = 0.0409666017
+    #   X 365/180 (= 2.0277778) = 0.0409666017
     #   exp(0.0409666017)       = 1.0418173105
     approx(fi.effective_annual_yield(D("0.0204081633"), 180), "0.04181731", places=8)
 
@@ -1091,9 +1091,9 @@ def test_the_three_annualizations_disagree_and_rank_predictably() -> None:
 
 
 def test_discount_to_bond_equivalent_yield() -> None:
-    # SPEC §6.2 [CORRECTED]: FRED's DGS3MO is quoted on a discount basis and
+    # FRED's DGS3MO is quoted on a discount basis and
     # must be converted before it is used as Rf.
-    #   price = 100(1 - 0.04 x 180/360) = 98
+    #   Price = 100(1 - 0.04 x 180/360) = 98
     #   BEY   = (2 / 98)(365 / 180) = 0.0413832187
     approx(fi.discount_to_bond_equivalent_yield(D("0.04"), 180), "0.0413832187", places=8)
 
@@ -1116,7 +1116,7 @@ def test_discount_yield_conversion_rejects_impossible_inputs() -> None:
 
 
 # ===========================================================================
-# §6.7 Derivatives — src/cfa/derivatives.py
+# derivatives — src/cfa/derivatives.py
 # ===========================================================================
 
 # Reference option set: S0 = 100, X = 100, r = 5%, T = 1 year.
@@ -1129,7 +1129,7 @@ def test_present_value_of_strike() -> None:
 
 def test_european_put_call_parity_holds_for_a_consistent_quote() -> None:
     # C + PV(X) = P + S0
-    # With C = 10:  P = 10 + 95.2380952 - 100 = 5.2380952
+    # with C = 10:  P = 10 + 95.2380952 - 100 = 5.2380952
     check = dv.european_put_call_parity(
         call_price=D("10"),
         put_price=D("5.2380952381"),
@@ -1174,7 +1174,7 @@ def test_implied_call_price_from_parity() -> None:
     )
 
 
-# --- American parity bounds (SPEC §6.7 [CORRECTED]) ------------------------
+# --- American parity bounds ------------------------
 
 
 def test_american_parity_bounds() -> None:
@@ -1247,7 +1247,7 @@ def test_dividends_lower_the_american_parity_bounds() -> None:
     assert with_dividend.lower < without.lower
 
 
-# --- Forward pricing (SPEC §6.7 [CORRECTED]) -------------------------------
+# --- Forward pricing -------------------------------
 
 
 def test_forward_price_with_dividend_carry() -> None:
@@ -1261,7 +1261,7 @@ def test_forward_price_without_dividends() -> None:
 
 
 def test_ignoring_dividends_overstates_the_forward_price() -> None:
-    # SPEC §6.7 [CORRECTED]: the v1 form S0(1+r)^T is wrong for any
+    # The v1 form S0(1+r)^T is wrong for any
     # dividend-paying equity, and wrong in a consistent direction.
     correct = dv.forward_price(D("100"), D("0.05"), D("1"), D("2"))
     naive = dv.forward_price(D("100"), D("0.05"), D("1"))
@@ -1309,7 +1309,7 @@ def test_put_moneyness_is_the_mirror_of_the_call() -> None:
 
 
 def test_long_call_payoff_and_profit() -> None:
-    # payoff = max(ST - X, 0); profit = payoff - premium
+    # Payoff = max(ST - X, 0); profit = payoff - premium
     assert dv.option_payoff(dv.Position.LONG_CALL, D("100"), D("115")) == D("15")
     assert dv.option_profit(dv.Position.LONG_CALL, D("100"), D("5"), D("115")) == D("10")
     assert dv.option_payoff(dv.Position.LONG_CALL, D("100"), D("90")) == D("0")
@@ -1365,7 +1365,7 @@ def test_covered_call_payoff_is_capped_at_the_strike() -> None:
 
 def test_covered_call_profit_and_breakeven() -> None:
     # Stock at 100, short the 105 call for 3.
-    #   breakeven  = 100 - 3 = 97
+    #   Breakeven  = 100 - 3 = 97
     #   max profit = 105 - 100 + 3 = 8
     approx(dv.covered_call_breakeven(D("100"), D("3")), "97")
     approx(dv.covered_call_profit(D("110"), D("105"), D("100"), D("3")), "8")
@@ -1389,7 +1389,7 @@ def test_protective_put_payoff_has_a_floor() -> None:
 
 def test_protective_put_profit_and_breakeven() -> None:
     # Stock at 100, long the 95 put for 2.
-    #   breakeven = 100 + 2 = 102
+    #   Breakeven = 100 + 2 = 102
     #   max loss  = 100 - 95 + 2 = 7
     approx(dv.protective_put_breakeven(D("100"), D("2")), "102")
     approx(dv.protective_put_profit(D("110"), D("95"), D("100"), D("2")), "8")
@@ -1399,7 +1399,7 @@ def test_protective_put_profit_and_breakeven() -> None:
 
 def test_protective_put_loss_is_bounded() -> None:
     # However far the stock falls, the loss stops at the max-loss figure. This
-    # is the overlay SPEC §6.7 proposes when volatility breaches the IPS ceiling.
+    # is the overlay proposes when volatility breaches the IPS ceiling.
     at_90 = dv.protective_put_profit(D("90"), D("95"), D("100"), D("2"))
     at_10 = dv.protective_put_profit(D("10"), D("95"), D("100"), D("2"))
     assert at_90 == at_10 == D("-7")
@@ -1411,11 +1411,11 @@ def test_protective_put_cost_drag() -> None:
 
 
 # ===========================================================================
-# §6.8 Alternative Investments — src/cfa/alternatives.py
+# alternative Investments — src/cfa/alternatives.py
 # ===========================================================================
 
 # "2 and 20" on a fund that starts at 100 and grows to 120 gross.
-#   management fee = 0.02 x 120                    = 2.40
+#   Management fee = 0.02 x 120                    = 2.40
 #   value net of management fee = 120 - 2.40       = 117.60
 #   gain over the 100 high-water mark              = 17.60
 #   incentive fee = 0.20 x 17.60                   = 3.52
@@ -1459,7 +1459,7 @@ def test_high_water_mark_rises_after_a_gain() -> None:
 
 def test_no_incentive_fee_below_the_high_water_mark() -> None:
     # Year 2: the fund falls from 114.08 to 100 gross.
-    #   management fee = 0.02 x 100 = 2.00; net = 98.00, below the mark.
+    #   Management fee = 0.02 x 100 = 2.00; net = 98.00, below the mark.
     fees = alt.hedge_fund_fees(
         beginning_value=D("114.08"),
         ending_value=D("100"),
@@ -1487,7 +1487,7 @@ def test_high_water_mark_does_not_fall_after_a_loss() -> None:
 
 def test_incentive_fee_only_applies_to_gains_above_the_mark() -> None:
     # Year 3: back to 120 gross against a 114.08 mark.
-    #   management fee = 2.40; net = 117.60
+    #   Management fee = 2.40; net = 117.60
     #   gain above mark = 117.60 - 114.08 = 3.52 -> incentive = 0.704
     fees = alt.hedge_fund_fees(
         beginning_value=D("98"),
@@ -1501,7 +1501,7 @@ def test_incentive_fee_only_applies_to_gains_above_the_mark() -> None:
 
 def test_hurdle_rate_raises_the_incentive_fee_threshold() -> None:
     # 8% hurdle on a 100 start: incentive applies only above 108.
-    #   gain = 120 - 108 = 12 -> incentive = 0.20 x 12 = 2.40
+    #   Gain = 120 - 108 = 12 -> incentive = 0.20 x 12 = 2.40
     fees = alt.hedge_fund_fees(
         beginning_value=D("100"),
         ending_value=D("120"),
@@ -1550,7 +1550,7 @@ def test_every_category_has_a_profile() -> None:
 
 
 def test_first_order_autocorrelation() -> None:
-    # x = 1..5, mean 3, deviations -2,-1,0,1,2
+    # X = 1..5, mean 3, deviations -2,-1,0,1,2
     #   numerator   = (-1)(-2) + (0)(-1) + (1)(0) + (2)(1) = 4
     #   denominator = 4 + 1 + 0 + 1 + 4                    = 10
     #   rho1 = 0.4
@@ -1570,8 +1570,8 @@ def test_unsmooth_returns_applies_the_geltner_filter() -> None:
 
 
 def test_unsmoothing_raises_measured_volatility() -> None:
-    # SPEC §6.8: appraisal-based and stale pricing damp reported volatility,
-    # which flatters Sharpe ratios and — the part that matters for §6.2 —
+    # Appraisal-based and stale pricing damp reported volatility,
+    # which flatters Sharpe ratios and — the part that matters for —
     # understates the variances and covariances fed to the optimizer. An
     # optimizer handed smoothed inputs will overweight the illiquid sleeve
     # because it looks less risky than it is.
@@ -1593,7 +1593,7 @@ def test_unsmooth_rejects_an_autocorrelation_of_one() -> None:
 
 
 # ===========================================================================
-# Guards — every refusal to return a number
+# guards — every refusal to return a number
 # ===========================================================================
 #
 # These are as much a part of the specification as the formulas. A model that

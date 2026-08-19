@@ -1,30 +1,12 @@
-"""Alternative investments: fee conventions and the smoothed-pricing problem.
+"""Alternative investment fee structures and the smoothed-pricing problem.
 
-CFA Level I topic area: Alternative Investments (SPEC §6.8).
+CFA Level I topic area: Alternative Investments.
 
-Pure functions, zero I/O, ``Decimal`` throughout.
-
-Why this module exists in a portfolio manager
----------------------------------------------
-The universe holds REIT and commodity ETFs, so two things have to be handled
-honestly.
-
-**Fees compound against the investor.** A "2 and 20" fund that returns 20%
-gross hands the investor about 14%. The high-water mark is the term that stops
-a manager being paid twice for the same gains after a drawdown, and it is the
-piece most often left out of a naive fee model.
-
-**Smoothed pricing corrupts the covariance matrix.** Real estate and private
-equity are valued by periodic appraisal, not continuous trading. Appraisals lag
-and anchor on the previous mark, so reported returns are a moving average of
-true returns. That autocorrelation damps measured volatility *and* measured
-correlation with everything else.
-
-The consequence is direct and bad: an optimizer fed those inputs (SPEC §6.2)
-sees an asset that appears both low-risk and uncorrelated, and concentrates
-into it. The apparent diversification is a measurement artifact. Where a
-smoothed series must be used, :func:`unsmooth_returns` recovers a more honest
-volatility first.
+Appraisal-based valuation makes reported returns a moving average of true
+returns. The resulting autocorrelation damps measured volatility *and*
+correlation, so an optimizer fed those inputs sees an asset that looks both
+low-risk and uncorrelated and concentrates into it. :func:`unsmooth_returns`
+recovers a more honest volatility first.
 """
 
 from __future__ import annotations
@@ -114,7 +96,7 @@ class FeeResult:
     incentive_fee: Decimal
     total_fees: Decimal
     ending_value_net: Decimal
-    #: Carried into the next period; never falls (SPEC §6.8).
+    #: Carried into the next period; never falls.
     high_water_mark: Decimal
     #: Net-of-fee return to the investor.
     investor_return: Decimal

@@ -1,14 +1,10 @@
-"""The investable universe, loaded from ``config/universe.yaml`` (SPEC §6.3).
+"""The investable universe, loaded from ``config/universe.yaml``.
 
-Written at M2 as a record of the survivorship limitation, wired in here. The
-whitelist is what ``UNIVERSE_WHITELIST`` checks against and what the backfill
-fetches, so having it live in configuration rather than in a literal means
-changing the universe is a reviewable diff.
+The whitelist lives in configuration so changing it is a reviewable diff.
 
-**Survivorship bias is a property of this file** and is carried on
-:class:`Universe` so callers can surface it rather than discover it. The list is
-fixed and current, not point-in-time index membership, so a backtest over
-history holds instruments selected partly because they still exist. Absolute
+Survivorship bias is a property of this file and is carried on
+:class:`Universe` so callers surface it rather than discover it: the list is
+fixed and current, not point-in-time index membership, so absolute backtest
 returns are an upper bound.
 """
 

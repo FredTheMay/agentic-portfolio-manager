@@ -1,18 +1,10 @@
-"""Per-symbol research service (M11).
+"""Per-symbol research: prices, ratios, valuation, beta, veto history.
 
-Assembles everything the system knows about one instrument into a single
-response: price history, point-in-time fundamentals, the CFA ratio table,
-valuation under the SPEC §6.5 hierarchy, the regression-estimated beta, and
-whether the risk engine has ever vetoed a trade in it.
+Every figure is computed by :mod:`src.cfa` from recorded data; this module
+assembles and formats, and never asks a model for a number.
 
-Every number here is computed by :mod:`src.cfa` from recorded data. The service
-assembles and formats; it does not calculate, and it never asks a model for a
-figure (SPEC §2.1).
-
-Fundamentals are read ``as_of`` the end of the recorded window rather than
-"now", so a research page shows what was actually knowable at the point the
-backtest ended — the same point-in-time discipline the backtest runs under
-(SPEC §4.4).
+Fundamentals are read as of the end of the recorded window rather than "now",
+so a research page shows what was knowable at the point the backtest ended.
 """
 
 from __future__ import annotations
@@ -42,7 +34,7 @@ ZERO = Decimal(0)
 ONE = Decimal(1)
 
 #: Payout assumption when a filer reports no dividend. Most large-cap tech pays
-#: none, which is exactly why SPEC §6.5 requires an FCFE fallback.
+#: none, which is exactly why an FCFE fallback is required.
 DEFAULT_PAYOUT = Decimal("0.30")
 
 

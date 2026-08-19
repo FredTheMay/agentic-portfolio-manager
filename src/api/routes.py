@@ -1,13 +1,11 @@
-"""FastAPI surface for the dashboard (SPEC §9, M9).
+"""Read-only FastAPI surface for the dashboard.
 
-Read-only. There is no endpoint that places a trade, changes the IPS, or
-overrides a veto — CFA Standard III(A) requires the policy to bind at runtime,
-and an HTTP route that could relax it would make that untrue no matter what the
-YAML said.
+There is no endpoint that places a trade, changes the policy, or overrides a
+veto. The policy binds at runtime, and an HTTP route able to relax it would
+make that untrue whatever the configuration said.
 
-The app serves a snapshot produced by a completed run
-(:class:`DashboardState`). It is deliberately not wired to a live trading loop:
-the loop writes state, the API reads it, and neither can block the other.
+The app serves a snapshot from a completed run: the trading loop writes state,
+the API reads it, and neither can block the other.
 """
 
 from __future__ import annotations

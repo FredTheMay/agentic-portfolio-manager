@@ -1,4 +1,4 @@
-"""The risk engine's central property, over 10,000 generated cases (SPEC §7).
+"""The risk engine's central property, over 10,000 generated cases.
 
     For arbitrary portfolios and arbitrary proposed weights, no approved
     output ever violates any constraint.
@@ -8,8 +8,7 @@ to be about *outputs* rather than about the path the code happens to take, and
 an engine written first tends to get a test that follows its own branches
 around and proves only that it is self-consistent.
 
-For the same reason every constraint below is re-derived here from the SPEC §7
-table rather than calling the engine's own verifier. A property test that
+For the same reason every constraint below is re-derived here from the table rather than calling the engine's own verifier. A property test that
 shares the implementation's checking code proves nothing.
 """
 
@@ -119,7 +118,7 @@ POLICY = InvestmentPolicy(
 
 
 # ---------------------------------------------------------------------------
-# Independent constraint checks, re-derived from the SPEC §7 table
+# independent constraint checks, re-derived from the table
 # ---------------------------------------------------------------------------
 
 
@@ -143,7 +142,7 @@ def constraint_failures(
     universe: frozenset[str],
     blocked: frozenset[str],
 ) -> list[str]:
-    """Every SPEC §7 rule that the final portfolio breaks. Independent of the engine."""
+    """Every rule that the final portfolio breaks. Independent of the engine."""
     failures: list[str] = []
 
     for symbol, weight in weights.items():
@@ -183,7 +182,7 @@ def constraint_failures(
 
 
 # ---------------------------------------------------------------------------
-# Generators
+# generators
 # ---------------------------------------------------------------------------
 
 weight = st.decimals(
@@ -239,7 +238,7 @@ def build_context(
 
 
 # ---------------------------------------------------------------------------
-# The property
+# the property
 # ---------------------------------------------------------------------------
 
 
@@ -262,7 +261,7 @@ def test_no_approved_output_ever_violates_a_constraint(
     blocked: set[str],
     drawdown: Decimal,
 ) -> None:
-    """SPEC §7's headline property, at 10,000 cases."""
+    """'s headline property, at 10,000 cases."""
     investable = frozenset(universe)
     barred = frozenset(blocked)
     context = build_context(current, investable, barred, drawdown)
@@ -278,7 +277,7 @@ def test_no_approved_output_ever_violates_a_constraint(
         dict(assessment.weights), assessment.cash_weight, investable, barred
     )
     assert not failures, (
-        f"{assessment.decision.value} output violates SPEC §7:\n"
+        f"{assessment.decision.value} output violates \n"
         + "\n".join(failures)
         + f"\n  proposed={proposed}\n  weights={dict(assessment.weights)}"
     )
@@ -338,7 +337,7 @@ def test_the_circuit_breaker_is_unconditional(
 ) -> None:
     """Past the drawdown limit, risk may never increase.
 
-    SPEC §7: peak-to-trough beyond 15% forces the minimum-variance portfolio
+    peak-to-trough beyond 15% forces the minimum-variance portfolio
     and halts risk increases. There is no proposal that overrides this.
     """
     assert drawdown > POLICY.max_drawdown
@@ -377,7 +376,7 @@ def test_turnover_never_exceeds_the_cap(
 @settings(max_examples=2_000, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(proposed=proposals, universe=universes)
 def test_evaluation_is_deterministic(proposed: dict[str, Decimal], universe: set[str]) -> None:
-    """SPEC §9: identical inputs produce identical output, every time."""
+    """Determinism: identical inputs produce identical output, every time."""
     context = build_context({}, frozenset(universe), frozenset(), D(0))
     first = evaluate(proposed, context, POLICY)
     second = evaluate(proposed, context, POLICY)

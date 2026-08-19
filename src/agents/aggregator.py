@@ -1,13 +1,9 @@
-"""View Aggregator (SPEC §5.4). **Deterministic. No LLM.**
+"""Combines agent views into numeric tilts. Deterministic; no LLM.
 
-This is the module where a model's opinion becomes a number, and it does so by
-table lookup in ``config/view_mapping.yaml`` — never by asking a model for a
-figure, and never by a heuristic buried in an optimizer.
-
-That matters for a reason beyond SPEC §2.1: it makes the conversion auditable.
-When someone asks why a name is overweight, the answer is a row in a YAML file
-and a stance from a logged agent response, both of which are identical across
-runs. "The model felt strongly about it" is not an answer.
+This is where a model's opinion becomes a number, and it does so by table
+lookup in ``config/view_mapping.yaml``. That makes the conversion auditable:
+the answer to "why is this name overweight" is a row in a config file and a
+logged stance, both identical across runs.
 """
 
 from __future__ import annotations

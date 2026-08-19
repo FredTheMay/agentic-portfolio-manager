@@ -1,14 +1,9 @@
-"""Backtest executor (SPEC §3.3, §4.3).
+"""Backtest executor: applies a fill model and reports what happened.
 
-Applies a configured :class:`~src.execution.fill_models.FillModel` to the
-orders a mandate implies, then reports what actually happened — including the
-implementation shortfall against the decision price, which is the number that
-separates a backtest from a claim.
-
-Deliberately reports rather than hides its own limitations: it ignores
-participation limits and urgency, and says so through
-:meth:`SimulatedExecutor.capabilities`. An executor that silently drops a
-constraint teaches the decision layer that the constraint works.
+Reports its own limitations rather than hiding them — it ignores participation
+limits and urgency, and :meth:`SimulatedExecutor.capabilities` says so. An
+executor that silently drops a constraint teaches the decision layer that the
+constraint works.
 """
 
 from __future__ import annotations
@@ -60,7 +55,7 @@ class SimulatedExecutor(ExecutionProvider):
             engine_version=ENGINE_VERSION,
             supports_intraday=False,
             # Stated plainly: this executor cannot respect a participation cap,
-            # so the caller must treat that constraint as advisory (SPEC §3.2).
+            # so the caller must treat that constraint as advisory.
             supports_participation_limits=False,
             supports_streaming_updates=True,
         )

@@ -1,4 +1,4 @@
-"""LLM agents, provider resilience, and the aggregator (SPEC §2.1, §5, §8, M7)."""
+"""LLM agents, provider resilience, and the aggregator."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ def bullish(ticker: str = "AAA", citations: list[dict[str, str]] | None = None) 
 
 
 # ===========================================================================
-# Provider resilience (SPEC §8)
+# provider resilience
 # ===========================================================================
 
 
@@ -108,7 +108,7 @@ def test_token_bucket_limits_then_refills() -> None:
 
 
 def test_token_bucket_uses_the_injected_clock_not_the_wall_clock() -> None:
-    # SPEC §4.1. Also means a test can exhaust and refill without sleeping.
+    # . Also means a test can exhaust and refill without sleeping.
     clock = SimulationClock(NOW)
     bucket = TokenBucket(capacity=1, refill_per_second=D("1"), clock=clock)
     bucket.take()
@@ -169,7 +169,7 @@ def test_failover_needs_at_least_one_provider() -> None:
 
 
 def test_resilient_provider_falls_back_to_neutral() -> None:
-    # SPEC §2.1(3): two reparse attempts, then NEUTRAL and continue. A cycle
+    # (3): two reparse attempts, then NEUTRAL and continue. A cycle
     # must not die because one model returned malformed JSON.
     inner = ScriptedProvider(error=InvalidResponseError("not JSON"))
     provider = ResilientProvider(inner=inner, attempts=2)
@@ -211,7 +211,7 @@ def test_the_whole_stack_composes(tmp_path: Path) -> None:
 
 
 # ===========================================================================
-# Research agent (SPEC §5.1)
+# research agent
 # ===========================================================================
 
 
@@ -278,13 +278,13 @@ def test_no_headlines_means_no_view() -> None:
 
 
 def test_research_agent_works_with_the_null_provider() -> None:
-    # SPEC §2.1(4): the system stays functional with the LLM disabled.
+    # (4): the system stays functional with the LLM disabled.
     agent = ResearchAgent(provider=NullProvider())
     assert agent.run("AAA", "A company", headlines(), NOW).stance is Stance.NEUTRAL
 
 
 # ===========================================================================
-# Fundamental agent (SPEC §5.2)
+# fundamental agent
 # ===========================================================================
 
 
@@ -315,7 +315,7 @@ def fundamentals() -> Fundamentals:
 
 def test_ratio_table_is_computed_in_python_not_by_the_model() -> None:
     table = ratio_table(fundamentals())
-    # Cross-checked against the §6.4 golden values.
+    # Cross-checked against the golden values.
     assert table["net_margin"] == D("0.105")
     assert table["return_on_equity"] == D("0.13125")
     assert table["accruals_ratio"] == D("-0.0375")
@@ -366,7 +366,7 @@ def test_fundamental_agent_returns_neutral_on_an_empty_table() -> None:
 
 
 # ===========================================================================
-# Macro agent (SPEC §5.3) — phase by rule, never by the model
+# macro agent — phase by rule, never by the model
 # ===========================================================================
 
 
@@ -409,7 +409,7 @@ def test_disagreeing_signals_produce_neutral_not_a_guess() -> None:
 
 
 def test_the_phase_is_classified_before_the_model_is_called() -> None:
-    # SPEC §5.3: the model writes narrative and cannot change the phase.
+    # The model writes narrative and cannot change the phase.
     agent = MacroAgent(provider=NullProvider())
     view = agent.run(signals(term_spread=D("-0.5"), unemployment_change=D("0.8")))
     assert view.phase is CyclePhase.CONTRACTION
@@ -435,7 +435,7 @@ def test_missing_signals_stay_missing() -> None:
 
 
 # ===========================================================================
-# Aggregator (SPEC §5.4) — deterministic, no LLM
+# aggregator — deterministic, no LLM
 # ===========================================================================
 
 
@@ -527,7 +527,7 @@ def test_an_unknown_agent_is_reported() -> None:
 
 
 # ===========================================================================
-# Narrator (SPEC §5.5) — a formatter, not a decision maker
+# narrator — a formatter, not a decision maker
 # ===========================================================================
 
 
@@ -567,7 +567,7 @@ def test_narrator_separates_fact_from_opinion() -> None:
 
 
 # ===========================================================================
-# Audit log (SPEC §6.9)
+# audit log
 # ===========================================================================
 
 
@@ -600,7 +600,7 @@ def test_audit_log_persists_as_json_lines(tmp_path: Path) -> None:
 
 
 # ===========================================================================
-# Provider selection (SPEC §8: one env var)
+# provider selection
 # ===========================================================================
 
 
@@ -639,7 +639,7 @@ def test_live_providers_refuse_to_run_without_a_key(monkeypatch: pytest.MonkeyPa
 
 
 def test_live_provider_schemas_still_pass_the_numeric_guard() -> None:
-    # The §2.1 guard runs in complete(), so it fires before any network call.
+    # The guard runs in complete(), so it fires before any network call.
     from src.llm.gemini import GeminiProvider
 
     class Numeric(BaseModel):

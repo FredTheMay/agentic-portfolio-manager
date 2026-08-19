@@ -27,7 +27,7 @@ export function Panel({ title, subtitle, children }: {
   );
 }
 
-/** SPEC §7 calls this the screen to demo first. */
+/** this is the screen to demo first. */
 export function VetoPanel({ data }: { data: Vetoes }) {
   const codes = Object.entries(data.by_code).sort((a, b) => b[1] - a[1]);
   return (

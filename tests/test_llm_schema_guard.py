@@ -1,4 +1,4 @@
-"""Structural test 4 — SPEC §2.1: "any numeric field in an LLM response schema is a bug."
+"""Structural test 4 — "any numeric field in an LLM response schema is a bug."
 
 The guard runs inside :meth:`LLMProvider.complete`, so no provider can opt out
 and no future agent can introduce an LLM-produced number by accident.

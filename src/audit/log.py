@@ -1,13 +1,8 @@
-"""Audit log (SPEC §6.9).
+"""Audit log of consequential decisions, tagged with the CFA Standard each implements.
 
-Every consequential act — an LLM view discarded, a trade vetoed, a constraint
-enforced — is recorded with the CFA Standard it implements. The point is not
-compliance theatre: it is that "the system rejected this" must be reviewable
-after the fact, by someone who was not there.
-
-CFA Standard V(B), communication with clients, is honored structurally: events
-carry a ``code`` and a ``detail``, both facts, and the Narrator's opinions
-(:mod:`src.agents.narrator`) are kept in a separate field from them.
+The point is reviewability after the fact, by someone who was not there.
+Events carry a code and a detail, both facts; a narrator's interpretation is
+kept in a separate field.
 """
 
 from __future__ import annotations
@@ -23,7 +18,7 @@ from src.time.clock import ensure_utc
 
 
 class Standard(str, enum.Enum):
-    """The CFA Standards this system implements in code (SPEC §6.9)."""
+    """The CFA Standards this system implements in code."""
 
     #: I(C) Misrepresentation — the HALLUCINATED_FIGURE and fabricated-citation checks.
     I_C_MISREPRESENTATION = "I(C) Misrepresentation"

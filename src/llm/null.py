@@ -1,13 +1,11 @@
-"""The no-LLM provider (SPEC §2.1, enforcement 4).
+"""Provider that returns NEUTRAL for everything.
 
-``NullProvider`` returns ``NEUTRAL`` for everything. The full pipeline runs
-against it, which is what makes the claim "the system remains fully functional
-with the LLM disabled" a tested fact rather than an aspiration. It is also the
-fallback when a live provider returns output that fails validation twice.
+Makes "the system runs with the LLM disabled" a tested fact rather than an
+aspiration, and serves as the fallback when a live provider returns output that
+fails validation twice.
 
-It constructs a neutral instance of whatever schema it is handed rather than
-requiring each agent to register a default, so a new agent cannot forget to
-provide one.
+It constructs a neutral instance of whatever schema it is handed, so a new
+agent cannot forget to register a default.
 """
 
 from __future__ import annotations
@@ -28,7 +26,7 @@ M = TypeVar("M", bound=BaseModel)
 #: neutral, rather than presenting an empty string as considered judgment.
 NULL_RATIONALE = "LLM disabled (NullProvider): no qualitative view; defaulted to NEUTRAL."
 
-#: Lowest conviction — a neutral view carries no weight (SPEC §5.4).
+#: Lowest conviction — a neutral view carries no weight.
 NULL_CONVICTION = 1
 
 
@@ -76,7 +74,7 @@ def _neutral_for(annotation: Any, *, path: str, conviction: bool) -> Any:
                     return member
             raise NullProviderError(
                 f"{path}: enum {annotation.__name__} has no NEUTRAL member, so "
-                "NullProvider cannot answer neutrally. Add one (SPEC §2.1)."
+                "NullProvider cannot answer neutrally. Add one."
             )
         if annotation is bool:
             return False
@@ -85,7 +83,7 @@ def _neutral_for(annotation: Any, *, path: str, conviction: bool) -> Any:
         if issubclass(annotation, int):
             if conviction:
                 return NULL_CONVICTION
-            raise NullProviderError(f"{path}: unexpected numeric field (SPEC §2.1)")
+            raise NullProviderError(f"{path}: unexpected numeric field")
 
     raise NullProviderError(
         f"{path}: no neutral value for annotation {annotation!r}; "

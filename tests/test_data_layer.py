@@ -1,4 +1,4 @@
-"""Data layer: caching, offline replay, EDGAR, FRED, and market data sources (M2).
+"""Data layer: caching, offline replay, EDGAR, FRED, and market data sources.
 
 The whole suite runs with no network and no API keys. Every client takes its
 fetcher by injection, so these tests exercise the real parsing and
@@ -36,12 +36,12 @@ def at(year: int, month: int, day: int) -> datetime:
 
 
 # ===========================================================================
-# Cache and the network boundary
+# cache and the network boundary
 # ===========================================================================
 
 
 def test_json_numbers_are_parsed_as_decimal() -> None:
-    # SPEC §9: a price arriving as the JSON literal 0.1 must be exactly 0.1,
+    # A price arriving as the JSON literal 0.1 must be exactly 0.1,
     # not the nearest binary double.
     parsed = loads('{"price": 0.1}')
     assert isinstance(parsed["price"], Decimal)
@@ -122,7 +122,7 @@ def test_caching_fetcher_records_then_replays(tmp_path: Path) -> None:
 
 
 def test_a_recorded_cache_replays_with_no_network(tmp_path: Path) -> None:
-    # SPEC §9: two identical runs produce identical output. Record once...
+    # Determinism: two identical runs produce identical output. Record once...
     cache = ResponseCache(root=tmp_path)
     recorder = CachingFetcher(cache, inner=StubFetcher({"https://example.test/d": {"v": 2}}))
     recorder.get_json("https://example.test/d")
@@ -208,7 +208,7 @@ def test_edgar_reports_an_unknown_ticker() -> None:
 
 
 def test_edgar_indexes_by_filing_date_not_period_end() -> None:
-    # The M2 restatement of the §4.4 rule, now through the real parser.
+    # The M2 restatement of the rule, now through the real parser.
     client = edgar_client()
 
     january = client.get_fundamentals("AAPL", at(2024, 1, 15))
@@ -425,7 +425,7 @@ def test_year_over_year_change_computes_from_visible_observations() -> None:
 
 
 # ===========================================================================
-# Market data sources
+# market data sources
 # ===========================================================================
 
 ALPACA_PAYLOAD = {
@@ -480,7 +480,7 @@ def test_bare_dates_are_stamped_at_the_session_close() -> None:
 
 
 def test_adjusted_close_is_absent_unless_supplied() -> None:
-    # SPEC §4.4: an absent adjustment must not be assumed equal to the raw close.
+    # An absent adjustment must not be assumed equal to the raw close.
     plain = sources.bar_event("SPY", {"t": "2024-01-03", "o": 1, "h": 2, "l": 1, "c": 2, "v": 1})
     assert isinstance(plain.payload, BarPayload)
     assert plain.payload.adj_close is None
@@ -502,7 +502,7 @@ def test_malformed_bars_are_rejected() -> None:
     with pytest.raises(sources.SourceError, match="missing field"):
         sources.bar_event("SPY", {"t": "2024-01-03", "o": 1})
     with pytest.raises(sources.SourceError):
-        # low above high is not a bar.
+        # Low above high is not a bar.
         sources.bar_event("SPY", {"t": "2024-01-03", "o": 1, "h": 1, "l": 9, "c": 1, "v": 1})
     with pytest.raises(sources.SourceError):
         sources.bar_event("SPY", {"t": "nonsense", "o": 1, "h": 2, "l": 1, "c": 2, "v": 1})
@@ -559,7 +559,7 @@ def test_alpaca_client_requires_symbols() -> None:
 
 
 # ===========================================================================
-# Offline replay end to end
+# offline replay end to end
 # ===========================================================================
 
 
@@ -581,7 +581,7 @@ def test_the_whole_data_layer_replays_offline(tmp_path: Path) -> None:
     )
 
     assert recorded is not None and replayed is not None
-    assert recorded == replayed, "SPEC §9: identical inputs, identical output"
+    assert recorded == replayed, "Determinism: identical inputs, identical output"
 
 
 def test_edgar_contact_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -602,7 +602,7 @@ def test_edgar_contact_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_alpaca_requests_carry_authentication_headers(monkeypatch: pytest.MonkeyPatch) -> None:
     # Alpaca authenticates market data by header. EDGAR identifies callers by
-    # User-Agent and FRED takes a query parameter, so this was the one vendor
+    # user-Agent and FRED takes a query parameter, so this was the one vendor
     # the shared fetcher could not reach — every live call returned 401.
     from src.data.cache import HttpxFetcher
     from src.data.sources import SourceError, alpaca_headers

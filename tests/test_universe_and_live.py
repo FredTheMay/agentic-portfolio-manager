@@ -1,9 +1,4 @@
-"""Universe loading and real-data assembly (SPEC §4.2, §6.2, §6.3).
-
-`config/universe.yaml` was written at M2 as the record of the survivorship
-limitation and then went unused for eight milestones. These tests cover it and
-the module that turns recorded market data into a backtest.
-"""
+"""Universe loading and assembly of a backtest from recorded market data."""
 
 from __future__ import annotations
 
@@ -44,7 +39,7 @@ def document() -> dict[str, Any]:
 
 
 # ===========================================================================
-# Universe
+# universe
 # ===========================================================================
 
 
@@ -58,7 +53,8 @@ def test_the_shipped_universe_loads() -> None:
 def test_the_universe_is_large_enough_for_the_position_cap() -> None:
     # The IPS caps any name at 10%, so a fully invested portfolio needs at
     # least ten holdings. A smaller universe makes the constrained frontier
-    # infeasible — which cost an entire silent backtest at M6.
+    # position cap needs at least ten holdings, or the constrained frontier
+    # is infeasible and the optimizer raises on every cycle.
     assert len(load_universe().tradable()) >= 10
 
 
@@ -70,7 +66,7 @@ def test_the_benchmark_is_not_itself_a_holding() -> None:
 
 
 def test_survivorship_bias_is_carried_on_the_universe() -> None:
-    # SPEC §4.4 requires this stated, not discovered.
+    # This is stated rather than left to be discovered.
     universe = load_universe()
     assert universe.survivorship_biased is True
     assert universe.survivorship_reason
@@ -123,7 +119,7 @@ def test_a_missing_file_is_reported() -> None:
 
 
 # ===========================================================================
-# Live data assembly
+# live data assembly
 # ===========================================================================
 
 
@@ -143,7 +139,7 @@ def bars(symbol: str, prices: list[str]) -> list[MarketEvent]:
 
 
 def test_returns_are_computed_from_adjusted_prices() -> None:
-    # SPEC §4.4: adjusted for returns, unadjusted for share arithmetic.
+    # Adjusted for returns, unadjusted for share arithmetic.
     source = InMemoryEventSource.from_events(bars("AAA", ["100", "110", "99"]))
     series = adjusted_series(source)
     assert to_returns(series["AAA"]) == [D("0.1"), D("-0.1")]
@@ -193,7 +189,7 @@ def test_the_market_return_assumption_is_a_premium_over_the_risk_free_rate() -> 
 
 
 # ===========================================================================
-# The shared setup resolver
+# the shared setup resolver
 # ===========================================================================
 
 

@@ -1,24 +1,15 @@
-"""The network boundary: JSON fetching, caching, and offline replay (SPEC §2, M2).
+"""The network boundary: JSON fetching, caching, and offline replay.
 
-Everything that reaches the outside world goes through :class:`JsonFetcher`.
-That buys three things the rest of the system depends on:
+Everything reaching the outside world goes through :class:`JsonFetcher`, which
+buys determinism (a cached response replays byte-for-byte), offline operation,
+and one place to be polite about rate limits.
 
-**Determinism.** SPEC §9 requires two identical backtest runs to produce
-identical output. A live HTTP call cannot promise that. Once a response is
-cached it is replayed byte-for-byte, so a re-run is both free and reproducible.
+Credentials are excluded from cache keys and from error text. Including them
+would make a replay under a different key miss every entry, and would put a
+secret into any log that recorded a failure.
 
-**Offline operation.** The whole test suite, and any backtest over already-
-fetched data, runs with no network and no API keys. An offline fetcher that is
-asked for something it does not have raises :class:`OfflineError` rather than
-silently returning nothing — a missing input must fail loudly, not become a
-gap in the data that the optimizer quietly interpolates over.
-
-**Politeness.** EDGAR and FRED both rate-limit and EDGAR requires a contact in
-the User-Agent. One chokepoint is one place to get that right.
-
-JSON numbers are parsed with ``parse_float=Decimal``. Financial values that
-arrive as JSON floats must never round-trip through binary floating point
-(SPEC §9); doing the conversion here means no caller can forget.
+JSON numbers are parsed with ``parse_float=Decimal`` so no caller downstream
+has to remember.
 """
 
 from __future__ import annotations
@@ -41,7 +32,7 @@ USER_AGENT_ENV = "EDGAR_USER_AGENT"
 #: real contact address and throttles or blocks traffic without one, so this
 #: default is a placeholder that must be overridden via ``$EDGAR_USER_AGENT``
 #: before any live EDGAR call. See:
-#: https://www.sec.gov/os/webmaster-faq#developers
+#: https://www.sec.gov/os/webmaster-faq#Developers
 FALLBACK_USER_AGENT = "agentic-portfolio-manager (educational paper trading; set EDGAR_USER_AGENT)"
 
 
@@ -75,7 +66,7 @@ class OfflineError(FetchError):
 #:
 #: Two reasons, both load-bearing. A credential must not decide a cache key, or
 #: a replay under a different (or absent) key misses every entry and silently
-#: falls back — which is exactly what happened before this existed. And the
+#: falls back silently. And the
 #: canonical form appears verbatim in error messages, so including a key would
 #: put it into logs, tracebacks, and CI output.
 SENSITIVE_PARAMS = frozenset({"api_key", "apikey", "token", "access_token", "key"})
@@ -122,7 +113,7 @@ def loads(text: str) -> Any:
 
     A price that arrives as the JSON literal ``0.1`` becomes exactly ``0.1``,
     not the nearest binary double. Doing this at the boundary means no caller
-    downstream has to remember (SPEC §9).
+    downstream has to remember.
     """
     try:
         return json.loads(text, parse_float=Decimal)
@@ -243,7 +234,7 @@ class HttpxFetcher:
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            # httpx puts the full URL — query string included — in its message.
+            # Httpx puts the full URL — query string included — in its message.
             raise FetchError(redact(f"request to {url} failed: {exc}")) from exc
         return loads(response.text)
 

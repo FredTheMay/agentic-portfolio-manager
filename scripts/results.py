@@ -1,4 +1,4 @@
-"""Regenerate RESULTS.md's numbers (SPEC §11). Run with `make results`."""
+"""Regenerate RESULTS.md's numbers. Run with `make results`."""
 
 from __future__ import annotations
 

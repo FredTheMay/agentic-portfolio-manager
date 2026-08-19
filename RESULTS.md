@@ -1,4 +1,4 @@
-# Backtest results (SPEC §11)
+# Backtest results
 
 **Real market data.** Prices from Alpaca (IEX feed, split- and dividend-adjusted), fundamentals
 from SEC EDGAR indexed by filing date, risk-free rate from FRED `DGS3MO` converted from its
@@ -43,7 +43,7 @@ make results              # replays offline; deterministic
 
 ## Results under both fill models
 
-SPEC §4.3 requires both. The gap is the strategy's execution-cost sensitivity; quoting only the
+requires both. The gap is the strategy's execution-cost sensitivity; quoting only the
 optimistic figure is the classic amateur tell.
 
 | Metric | `InstantFillModel` | `SpreadCrossFillModel` |
@@ -92,8 +92,7 @@ correct noise.
 
 ## Estimated betas — a sanity check
 
-Betas are not declared anywhere; they are regressed from realized excess returns (SPEC §6.2
-[CORRECTED], by OLS rather than `Cov/Var`, so R² and standard errors come with them).
+Betas are not declared anywhere; they are regressed from realized excess returns .
 
 | Symbol | β | Sanity |
 |---|---:|---|
@@ -110,7 +109,7 @@ regression path is wired correctly.
 
 **The alpha is not statistically significant.** Jensen's α is +4.17%, which looks good alone. Its
 t-statistic is **1.17**, well below the ~1.96 needed at 5%. The point estimate cannot be
-distinguished from zero. This is exactly why SPEC §6.1 requires beta by regression rather than the
+distinguished from zero. This is exactly why requires beta by regression rather than the
 `Cov/Var` shortcut: the shortcut hands you the α and hides the fact that it means nothing.
 
 **Beta 0.70 explains the shortfall.** With R² of 0.78, roughly four-fifths of the portfolio's
@@ -122,7 +121,7 @@ consequence, not a surprise.
 that took materially more risk for its 20.33%. Whether that trade is worth making is the
 investor's call, which is what an IPS is for.
 
-## Structural acceptance criteria (SPEC §11)
+## Structural checks
 
 - [x] Full pipeline runs with `NullProvider` (no LLM)
 - [x] Full pipeline runs without the C++ engine

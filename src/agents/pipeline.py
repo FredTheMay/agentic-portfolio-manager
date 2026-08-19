@@ -1,20 +1,14 @@
-"""Wiring the agents into the decision cycle (SPEC §5.4).
+"""Wiring the agents into the decision cycle.
 
-This is the seam between the qualitative half of the system and the
-quantitative one. Agents produce categorical views; the aggregator turns them
-into numeric tilts by table lookup; the tilts adjust the CAPM baseline the
-optimizer starts from. Nothing else crosses.
+Agents produce categorical views; the aggregator turns them into numeric tilts
+by table lookup; the tilts adjust the CAPM baseline. Nothing else crosses.
 
-The contract is deliberately narrow — :meth:`ViewPipeline.tilts` takes symbols
-and an instant and returns a plain ``symbol -> Decimal`` map — so the backtest
-engine has no idea whether views came from three LLM agents or from nowhere at
-all. That is what makes SPEC §2.1(4) testable end to end: swap
-:class:`AgentViewPipeline` for :class:`NoViews`, or point it at
-``NullProvider``, and the identical cycle runs.
+:meth:`ViewPipeline.tilts` is deliberately narrow — symbols and an instant in,
+a plain tilt map out — so the engine cannot tell whether views came from three
+LLM agents or from nowhere.
 
-Failure policy: an agent that raises is recorded and treated as NEUTRAL. A
-research call that times out should cost the portfolio its *opinion*, not its
-rebalance.
+An agent that raises is recorded and treated as NEUTRAL: a research call that
+times out should cost the portfolio its opinion, not its rebalance.
 """
 
 from __future__ import annotations
@@ -80,7 +74,7 @@ class CycleViews:
 
 @dataclass(slots=True)
 class AgentViewPipeline:
-    """Runs the three agents and aggregates them into tilts (SPEC §5).
+    """Runs the three agents and aggregates them into tilts.
 
     All three agents share one provider, so a single ``LLM_PROVIDER=null``
     disables the qualitative layer entirely and the cycle still completes.

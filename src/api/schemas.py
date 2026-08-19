@@ -1,12 +1,11 @@
-"""API response models (SPEC §9, M9).
+"""API response models.
 
-Every monetary and ratio value crosses the wire as a **decimal string**, for
-the same reason the execution contract does (SPEC §3.2): JSON numbers are
-IEEE-754 doubles, and a weight that round-trips through one is no longer the
-weight the risk engine approved.
+Every monetary and ratio value crosses the wire as a decimal string. JSON
+numbers are IEEE-754 doubles, and a weight round-tripped through one is no
+longer the weight the risk engine approved.
 
-The disclaimer is a required field on the root document rather than a template
-detail, so no screen can render without it (SPEC §1).
+The disclaimer is a required field rather than a template detail, so no screen
+can render without it.
 """
 
 from __future__ import annotations
@@ -16,10 +15,10 @@ from typing import Sequence
 
 from pydantic import BaseModel, Field
 
-#: SPEC §1. Carried on every response, not just the landing page.
+#: . Carried on every response, not just the landing page.
 DISCLAIMER = "Educational paper-trading simulation. Not investment advice."
 
-#: SPEC §4.4 requires this stated in the dashboard footer, not only the README.
+#: this belongs in the dashboard footer, not only the README.
 SURVIVORSHIP_NOTICE = (
     "Backtest universe is a fixed current list, not point-in-time index "
     "membership. Absolute returns are overstated; treat them as an upper bound."
@@ -90,7 +89,7 @@ class FrontierResponse(BaseModel):
 
 
 class VetoResponse(BaseModel):
-    """One vetoed trade. SPEC §7 calls this the screen to demo first."""
+    """One vetoed trade. this is the screen to demo first."""
 
     timestamp: str
     code: str
@@ -108,7 +107,7 @@ class VetoesResponse(BaseModel):
 
 
 class AttributionResponse(BaseModel):
-    """Systematic versus diversifiable risk (SPEC §6.2)."""
+    """Systematic versus diversifiable risk."""
 
     total_variance: str
     systematic_variance: str
@@ -135,7 +134,7 @@ class AuditResponse(BaseModel):
 
 
 class CapabilitiesResponse(BaseModel):
-    """What the configured executor can honor (SPEC §3.2).
+    """What the configured executor can honor.
 
     Surfaced in the UI because a constraint the executor cannot respect is
     advisory, and the operator should be able to see that without reading code.
@@ -181,7 +180,7 @@ def format_series(values: Sequence[Decimal]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Research (M11)
+# research
 # ---------------------------------------------------------------------------
 
 
@@ -218,7 +217,7 @@ class PricePointResponse(BaseModel):
 class RatioRow(BaseModel):
     name: str
     value: str
-    #: Which CFA §6.4 family the ratio belongs to, for grouping in the UI.
+    #: Which CFA family the ratio belongs to, for grouping in the UI.
     family: str
 
 
@@ -246,7 +245,7 @@ class ResearchResponse(BaseModel):
     disclaimer: str = DISCLAIMER
 
 
-#: Ratio name -> CFA §6.4 family, for grouping. Anything unlisted is "Other".
+#: Ratio name -> CFA family, for grouping. Anything unlisted is "Other".
 RATIO_FAMILIES: dict[str, str] = {
     "current_ratio": "Liquidity",
     "quick_ratio": "Liquidity",

@@ -1,26 +1,10 @@
-"""Lambda entry points (SPEC §10, M10).
+"""Lambda entry points: the scheduled decision cycle and the dashboard API.
 
-Two handlers:
-
-:func:`scheduled_cycle`
-    Invoked by EventBridge on a cron. Runs one decision cycle and writes the
-    result to the state store.
-
-:func:`api_handler`
-    Serves the read-only dashboard API behind API Gateway.
-
-**EventBridge delivers at least once, not exactly once.** A schedule can fire
-twice for the same slot, and a retry after a timeout is indistinguishable from
-a fresh invocation. Two defences, both already in place from earlier
-milestones:
-
-* the mandate id is a content hash (M4), so a repeated decision produces the
-  same id;
-* the broker rejects a duplicate ``client_order_id`` (M8).
-
-The handler adds the third: writing a cycle to DynamoDB is a ``put_item`` on
-that id, so a replay overwrites rather than appending. None of these is
-sufficient alone.
+EventBridge delivers at least once, and a Lambda retry after a timeout is
+indistinguishable from a fresh invocation. Three independent defenses cover
+that: content-hashed mandate ids, broker-side rejection of a duplicate
+``client_order_id``, and writing a cycle as a ``put_item`` on that id so a
+replay overwrites rather than appending.
 """
 
 from __future__ import annotations
@@ -137,7 +121,7 @@ def run_cycle(
 
 
 def scheduled_cycle(event: Mapping[str, Any], context: Any = None) -> dict[str, Any]:
-    """EventBridge entry point (SPEC §10)."""
+    """EventBridge entry point."""
     payload = run_cycle()
     return {"statusCode": 200, "body": payload}
 

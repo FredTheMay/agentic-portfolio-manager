@@ -1,18 +1,14 @@
-"""The execution boundary, Python side (SPEC §3).
+"""The execution boundary: sizing, orders, fills, and the provider contract.
 
-Everything below the boundary lives in this package: sizing, orders, venues,
-fills, brokers. The decision layer hands down a
-:class:`~src.decision.mandate.RebalanceMandate` of target weights and gets back
-an :class:`ExecutionReport`. That is the whole surface.
+Everything below the boundary lives in this package. The decision layer hands
+down target weights and receives an :class:`ExecutionReport`.
 
-Sizing lives here rather than upstream because share counts are a function of
-weights, prices, and portfolio value *at execution time*. A real algorithm
-recomputes them as it works an order; a fixed share count decided minutes
-earlier is already stale.
+Sizing lives here because share counts are a function of weights, prices and
+portfolio value *at execution time*; a count decided minutes earlier is already
+stale.
 
-These types mirror ``proto/execution.proto`` one-for-one, so the future C++
-engine implements the same service with no renegotiation. Swapping executors is
-one config value (:func:`get_executor`).
+These types mirror ``proto/execution.proto``, so a future engine in another
+language implements the same service with no renegotiation.
 """
 
 from __future__ import annotations
@@ -141,7 +137,7 @@ ExecutionUpdate = Fill | Rejection | ExecutionReport
 
 @dataclass(frozen=True, slots=True)
 class Capabilities:
-    """What an executor can actually honor (SPEC §3.2).
+    """What an executor can actually honor.
 
     Lets the decision layer degrade gracefully: an executor reporting
     ``supports_participation_limits = False`` means that constraint is
@@ -202,8 +198,8 @@ class MarketSnapshot:
 class ExecutionProvider(ABC):
     """A thing that can turn a mandate into fills.
 
-    Implementations: :class:`~src.execution.simulated.SimulatedExecutor` (M5),
-    ``NaiveExecutor`` against a paper broker (M8), and eventually a gRPC client
+    Implementations: :class:`~src.execution.simulated.SimulatedExecutor`,
+    ``NaiveExecutor`` against a paper broker, and eventually a gRPC client
     pointing at the C++ engine. Adding the third requires zero changes outside
     this package.
     """
@@ -238,7 +234,7 @@ class ExecutionProvider(ABC):
 
 
 # ---------------------------------------------------------------------------
-# Sizing — weights to share counts
+# sizing — weights to share counts
 # ---------------------------------------------------------------------------
 
 
@@ -304,7 +300,7 @@ def size_orders(
             )
         )
 
-    # Deterministic order: SPEC §9 requires identical runs to produce an
+    # Deterministic order: identical runs to produce an
     # identical trade log, and dict iteration order is not a guarantee to rely on.
     orders.sort(key=lambda o: o.symbol)
     rejections.sort(key=lambda r: r.symbol)

@@ -1,21 +1,12 @@
-"""Walk-forward validation (SPEC §6.2).
+"""Walk-forward validation and fill-model sensitivity.
 
-    Estimate on a rolling window, trade the following period, roll forward.
+Estimate on a rolling window, trade the following period, roll forward. A
+single backtest over the full history is curve fitting, and iterating on it
+until it looks good is how noise gets fitted.
 
-A single backtest over the full history is curve fitting, and iterating on it
-until it looks good is how you fit noise. The distinction matters because it is
-the difference between "this strategy would have worked" and "these parameters
-describe this sample".
-
-Walk-forward does not eliminate the problem — reusing the same data to pick a
-model across many folds still leaks — but it does ensure that every trade is
-made using only information available before it, which a single in-sample
-backtest does not.
-
-The harness also runs the whole thing under **both** fill models and reports
-the pair (SPEC §4.3). The gap between them is the strategy's execution-cost
-sensitivity, and a strategy whose edge disappears under a crossed spread does
-not have an edge.
+Walk-forward does not eliminate that — reusing the same data to pick a model
+across folds still leaks — but it does ensure every trade uses only information
+available before it.
 """
 
 from __future__ import annotations
@@ -114,7 +105,7 @@ class WalkForwardResult:
         """Annualized return given up to execution costs.
 
         The number a strategy is tempted to leave out. Reporting only the
-        optimistic figure is the classic amateur tell (SPEC §4.3).
+        optimistic figure is the classic amateur tell.
         """
         return self.optimistic.metrics.annualized_twr - self.realistic.metrics.annualized_twr
 

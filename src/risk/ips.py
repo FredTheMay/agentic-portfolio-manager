@@ -1,12 +1,7 @@
-"""The Investment Policy Statement as typed configuration (SPEC §6.3).
+"""The Investment Policy Statement as typed configuration.
 
 Separated from :mod:`src.risk.engine` so the engine stays a pure function with
-no I/O: reading YAML happens here, once, and the engine receives an already
-validated :class:`InvestmentPolicy`.
-
-(SPEC §9's layout lists only ``engine.py`` and ``codes.py`` under ``src/risk/``.
-This third module exists to keep the "no I/O" requirement in §7 literally true;
-folding the loader into the engine would break it.)
+no I/O: YAML is read here once and the engine receives a validated policy.
 """
 
 from __future__ import annotations
@@ -38,7 +33,7 @@ class RiskLevel(enum.IntEnum):
 
 @dataclass(frozen=True, slots=True)
 class SafetyFirstPolicy:
-    """Roy's safety-first parameters (SPEC §6.1).
+    """Roy's safety-first parameters.
 
     Both are policy choices rather than derived quantities.
     """
@@ -85,7 +80,7 @@ class InvestmentPolicy:
     def effective_exposure_ceiling(self) -> Decimal:
         """The tighter of the leverage ceiling and what the cash buffer permits.
 
-        SPEC §7 states these as two independent rules — ``NO_LEVERAGE`` at
+        these as two independent rules — ``NO_LEVERAGE`` at
         ``sum(w) <= 1.0`` and ``MIN_CASH_BUFFER`` at ``cash >= 5%`` — and the
         second is strictly tighter. They are not in conflict; the liquidity
         floor simply binds first. Naming the combination once stops the two
@@ -95,7 +90,7 @@ class InvestmentPolicy:
 
     @property
     def binding_risk_tolerance(self) -> RiskLevel:
-        """The lower of ability and willingness (SPEC §6.3).
+        """The lower of ability and willingness.
 
         Ability is a fact about horizon and balance sheet; willingness is a
         psychological constraint. Taking the higher of the two would build a

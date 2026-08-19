@@ -1,37 +1,20 @@
-"""FRED macro series, vintage-aware (SPEC §4.4, §5.3).
+"""FRED macroeconomic series, read point-in-time.
 
-Macro data is **revised**, often substantially. Q1 GDP released in April is
-restated in May and again in June. A backtest that reads today's final value
-for a date in April is trading on a number nobody had.
+Macro data is revised, often substantially: ``CPIAUCSL`` carries roughly four
+revisions per period. Visibility is keyed on ALFRED's ``realtime_start``, so a
+query in late April sees the April release and the May revision stays invisible
+until May.
 
-FRED exposes this through ALFRED's real-time dimension: each observation
-carries ``realtime_start``, the date that value became the published figure.
-Visibility is keyed on that, so a query in late April returns the April release
-and the May revision stays invisible until May. ``CPIAUCSL`` alone carries
-roughly four revisions per period.
+Two fetch strategies, because FRED caps a response at ~2000 vintage dates.
+Revised series are requested across the full real-time window. A *daily* series
+has one vintage date per business day and exceeds that cap within a decade —
+FRED answers 400 — so daily market rates are fetched at current real time and
+dated by observation, which is correct because they are published once and
+never revised. See :data:`REVISED_SERIES`.
 
-**Two fetch strategies, because FRED caps a response at ~2000 vintage dates.**
-Revised series are requested across the whole real-time window so every vintage
-arrives. A *daily* series has one vintage date per business day and blows
-through that cap within a decade — FRED answers 400 — so daily market rates are
-fetched at current real time and dated by observation instead. That is correct
-for them precisely because they are published once and never revised. See
-:data:`REVISED_SERIES`.
-
-Series used by the Macro/Regime agent (SPEC §5.3):
-
-===========  ==================================================
-``T10Y3M``   10-year minus 3-month term spread; inversion signal
-``UNRATE``   unemployment rate
-``CPIAUCSL`` CPI, for the year-over-year inflation rate
-``DFF``      effective fed funds rate, for policy direction
-``DGS3MO``   3-month Treasury — **discount basis**, see below
-===========  ==================================================
-
-``DGS3MO`` is the natural risk-free rate and is quoted on a bank discount
-basis. It must go through
-:func:`src.cfa.fixed_income.discount_to_bond_equivalent_yield` before it is
-used in Sharpe, Treynor, CAPM, or the CAL (SPEC §6.2 [CORRECTED]).
+``DGS3MO`` is quoted on a bank discount basis and must go through
+:func:`src.cfa.fixed_income.discount_to_bond_equivalent_yield` before use as a
+risk-free rate.
 """
 
 from __future__ import annotations
@@ -70,7 +53,7 @@ THREE_MONTH_TREASURY = "DGS3MO"
 #: Series FRED revises after first publication. These are fetched across the
 #: full real-time window so every vintage is recorded — CPIAUCSL alone carries
 #: roughly four revisions per period, and reading the final value at a date
-#: before it existed is precisely the lookahead SPEC §4.4 forbids.
+#: before it existed is precisely the lookahead forbids.
 REVISED_SERIES: frozenset[str] = frozenset({CPI, UNEMPLOYMENT})
 
 #: Daily market-rate series are published once and never revised. FRED caps a
@@ -222,7 +205,7 @@ def year_over_year_change(
 ) -> Decimal | None:
     """Year-over-year rate of change, computed only from visible observations.
 
-    Used for CPI inflation (SPEC §5.3). Returns ``None`` when a full year of
+    Used for CPI inflation. Returns ``None`` when a full year of
     history was not yet public — the honest answer, rather than an annualized
     figure derived from a partial window.
     """

@@ -1,18 +1,12 @@
-"""Performance and attribution metrics (SPEC §6.1, §6.2, §11).
+"""Performance and attribution metrics.
 
-Every figure here is computed by :mod:`src.cfa`; this module only assembles
-them from an equity curve and a benchmark.
+TWR is the headline because GIPS requires it: chain-linking sub-period returns
+removes the effect of cash-flow timing, isolating the manager's decisions from
+the client's. MWR is reported alongside, and the gap between them is that
+timing effect.
 
-**TWR is the headline.** GIPS requires time-weighted returns because
-chain-linking sub-period returns removes the effect of the *timing* of external
-cash flows, isolating the manager's decisions from the client's. MWR is
-reported alongside, and the gap between them is the cash-flow timing effect —
-explaining that gap is the point of showing both (SPEC §6.1).
-
-**Alpha comes with a t-statistic.** A positive Jensen's alpha is a point
-estimate; whether it is distinguishable from zero is a different question, and
-the t-stat on the regression intercept is the only honest way to answer it. A
-strategy quoting alpha without it is quoting noise it has not ruled out.
+Alpha is reported with the t-statistic on the regression intercept. A positive
+point estimate says nothing on its own about whether it differs from zero.
 """
 
 from __future__ import annotations
@@ -66,7 +60,7 @@ def max_drawdown(equity_curve: Sequence[Decimal]) -> Decimal:
 
     Measured on the equity curve rather than on returns because that is what an
     investor actually experiences, and it is the quantity the IPS circuit
-    breaker is written against (SPEC §7).
+    breaker is written against.
     """
     if not equity_curve:
         return ZERO
@@ -107,7 +101,7 @@ def annualized_volatility(
 
 @dataclass(frozen=True, slots=True)
 class PerformanceMetrics:
-    """Everything SPEC §11's numeric checklist asks for."""
+    """Everything 's numeric checklist asks for."""
 
     periods: int
     total_return: Decimal
@@ -153,7 +147,7 @@ def compute_metrics(
 
     ``risk_free_rate`` must already be a **bond-equivalent yield**. FRED's
     ``DGS3MO`` is quoted on a discount basis and understates the rate until
-    converted (SPEC §6.2 [CORRECTED]) — using it raw inflates every
+    converted — using it raw inflates every
     risk-adjusted figure below.
     """
     if len(equity_curve) < 2:

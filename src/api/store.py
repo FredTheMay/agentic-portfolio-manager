@@ -1,23 +1,12 @@
-"""Persistence for cycle state and the audit trail (SPEC §9, M10).
+"""Persistence for cycle state and the audit trail.
 
-(SPEC §9's layout lists ``routes.py``, ``schemas.py`` and ``ws.py`` under
-``src/api/``. This fourth module exists so the Lambda handler has somewhere to
-put state that is not the request path.)
-
-Two implementations behind one protocol:
-
-:class:`InMemoryStateStore`
-    Default. Backtests and tests need no infrastructure.
-
-:class:`DynamoStateStore`
-    AWS. ``boto3`` is imported **inside** the constructor, so the core package
-    neither depends on it nor pays to import it. A checkout with no AWS
-    anything still runs everything.
-
-Everything is stored as a decimal **string**. DynamoDB's ``N`` type is
+Everything is stored as a decimal string. DynamoDB's ``N`` type is
 arbitrary-precision, but the boto3 round trip goes through ``float`` unless you
-fight it, and a weight that becomes 0.06999999999999999 in storage is a weight
-the risk engine did not approve.
+fight it, and a weight stored as 0.06999999999999999 is not the weight the risk
+engine approved.
+
+``boto3`` is imported inside the constructor so the core package neither
+depends on it nor pays to import it.
 """
 
 from __future__ import annotations

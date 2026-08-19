@@ -1,14 +1,8 @@
-"""Client for the C++ execution engine — **stub only** (SPEC §3.3, §12).
+"""Client stub for an out-of-process execution engine.
 
-The C++ engine is a separate project with its own spec. It will implement
-``proto/execution.proto`` as a gRPC service, and this module will become a thin
-client pointing at it.
-
-Do not implement it here. SPEC §12 is explicit, and the reason is the point of
-the whole boundary: this repo must be complete and useful without the engine
-existing. The value of the stub is that it proves the seam — adding the real
-client requires zero changes outside ``src/execution/``, and swapping to it is
-one config value in :func:`src.execution.get_executor`.
+Deliberately unimplemented. The value of the stub is that it proves the seam:
+adding a real client requires no change outside this package, and swapping to
+it is one config value in :func:`src.execution.get_executor`.
 """
 
 from __future__ import annotations

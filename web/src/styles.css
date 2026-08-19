@@ -5,7 +5,7 @@
  * align down a column, monospace for anything a reader will compare, and a
  * dense grid that puts more on screen than it wastes in padding.
  *
- * The disclaimer banner is the one element that never scrolls away (SPEC §1). */
+ * The disclaimer banner is the one element that never scrolls away. */
 
 :root {
   --bg: #080b10;
@@ -48,7 +48,7 @@ body {
 .num, .stat-value, .price, .delta, .bar-value, table td.num,
 .quote-price, .alpha-value { font-variant-numeric: tabular-nums; font-family: var(--mono); }
 
-/* --- Disclaimer: sticky, never dismissible (SPEC §1) --------------------- */
+/* --- Disclaimer: sticky, never dismissible --------------------- */
 .banner {
   position: sticky; top: 0; z-index: 30;
   background: var(--warn); color: #1a1200;

@@ -1,21 +1,13 @@
-"""Assembling a real backtest from recorded market data (SPEC §4.2, §6.2).
+"""Assembles a backtest from recorded market data.
 
-The counterpart to :mod:`src.data.synthetic`. Where that generates bars, this
-one replays what was actually fetched — and every function here reads through
-the cache, so a backtest over real data needs credentials exactly once
-(``scripts/backfill.py``) and is offline and byte-reproducible thereafter.
+Reads through the cache, so a run over real data needs credentials exactly once
+(``scripts/backfill.py``) and is offline and reproducible thereafter.
 
-Two things are *estimated* here rather than assumed, because with real data
-they are no longer free parameters:
-
-**Betas.** The synthetic universe declares each symbol's beta. Real symbols do
-not, so beta is estimated by regressing excess returns on the benchmark's
-(SPEC §6.2 [CORRECTED]) — which also yields R² and the standard errors, unlike
-the ``Cov/Var`` shortcut.
-
-**The risk-free rate.** Taken from FRED's ``DGS3MO`` and converted from its
-bank-discount quote to a bond-equivalent yield before use. Skipping that
-conversion understates Rf and inflates every risk-adjusted metric downstream.
+Two quantities are estimated rather than assumed. Betas are regressed from
+excess returns, since real symbols do not come with one. The risk-free rate
+comes from ``DGS3MO`` converted from its bank-discount quote to a
+bond-equivalent yield; skipping that conversion understates it and inflates
+every risk-adjusted metric downstream.
 """
 
 from __future__ import annotations
@@ -120,7 +112,7 @@ def cached_fetcher(cache_root: Path | None = None, offline: bool = True) -> Cach
 
     Defaults to ``offline=True``: a backtest must never silently reach the
     network mid-run, because that would make the result depend on the day it
-    was run (SPEC §9). ``scripts/backfill.py`` is the one place that fetches.
+    was run. ``scripts/backfill.py`` is the one place that fetches.
     """
     root = cache_root or DEFAULT_CACHE_ROOT
     if offline:
@@ -143,7 +135,7 @@ def load_bars(
 def adjusted_series(source: InMemoryEventSource) -> dict[str, list[Decimal]]:
     """Adjusted closes per symbol, in time order.
 
-    Adjusted, because these become *returns* — SPEC §4.4 keeps adjusted and
+    Adjusted, because these become *returns* keeps adjusted and
     unadjusted apart and this is the return side.
     """
     series: dict[str, list[Decimal]] = {}
@@ -179,7 +171,7 @@ def estimate_betas(
     risk_free_rate: Decimal,
     periods_per_year: int = 252,
 ) -> dict[str, BetaEstimate]:
-    """Regress each symbol's excess returns on the benchmark's (SPEC §6.2).
+    """Regress each symbol's excess returns on the benchmark's.
 
     Symbols whose history does not line up with the benchmark's are skipped
     rather than given a default beta: a fabricated 1.0 would flow straight into
@@ -222,8 +214,7 @@ def risk_free_rate(
     ``DGS3MO`` is quoted on a **bank discount basis**: it divides the discount
     by face value rather than by the price actually paid, and annualizes on 360
     days. Both biases run low, so feeding it in raw understates Rf and inflates
-    every excess return and Sharpe ratio computed from it (SPEC §6.2
-    [CORRECTED]).
+    every excess return and Sharpe ratio computed from it.
 
     Falls back to ``fallback`` when nothing has been recorded, so a run without
     FRED still completes — with a stated assumption rather than a crash.
@@ -248,7 +239,7 @@ def market_return(betas: Mapping[str, BetaEstimate], risk_free: Decimal) -> Deci
     A long-run premium of 5% over the risk-free rate. This is an *assumption*,
     not an estimate — realized premia over any sample are far too noisy to
     estimate a forward-looking mean from, which is precisely why the optimizer
-    takes CAPM expected returns rather than sample means (SPEC §6.2).
+    takes CAPM expected returns rather than sample means.
     """
     return risk_free + Decimal("0.05")
 

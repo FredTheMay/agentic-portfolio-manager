@@ -1,13 +1,12 @@
-"""WebSocket surface for live cycle updates (SPEC §9).
+"""WebSocket fan-out of cycle events.
 
-Read-only, like the rest of the API: the socket pushes state outward and
-accepts nothing that could change a decision. A client that disconnects loses
-nothing, because every message is also available from a REST endpoint — the
-socket is a latency optimization, not a source of truth.
+Read-only, like the rest of the API. Every message is also available from a
+REST endpoint, so the socket is a latency optimization rather than a source of
+truth.
 
-The broadcaster is deliberately independent of the trading loop. The loop
-publishes and moves on; a slow or absent subscriber can never block a
-rebalance.
+A full subscriber queue drops that client's message rather than blocking the
+publisher: stalling the trading loop to wait on a dashboard would be the wrong
+trade every time.
 """
 
 from __future__ import annotations

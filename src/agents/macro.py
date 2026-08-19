@@ -1,18 +1,12 @@
-"""Macro / Regime Agent (SPEC §5.3).
+"""Macro agent: business-cycle phase by rule, narrative by model.
 
-**The business-cycle phase is classified by rule, not by the model.** The rule
-is twelve lines of Python you can read and disagree with; a model's answer
-would be neither. The LLM writes narrative around a classification it was
-handed.
+The phase is classified by :func:`classify_phase`, twelve lines you can read
+and disagree with. The model writes prose around a classification it was
+handed and cannot change it.
 
-Signals, all point-in-time (SPEC §4.4) so a backtest sees only what was
-published at the time:
-
-``T10Y3M``    term spread; a sustained inversion is the single most reliable
-              recession lead the series offers.
-``UNRATE``    unemployment, in trend rather than in level.
-``CPIAUCSL``  CPI, converted to a year-over-year rate.
-``DFF``       effective fed funds, for policy direction.
+Signals are read point-in-time, so a backtest sees only what was published at
+the time. :func:`classify_phase` returns NEUTRAL when signals disagree rather
+than picking the closest match.
 """
 
 from __future__ import annotations
@@ -88,7 +82,7 @@ class MacroSignals:
 
 
 def classify_phase(signals: MacroSignals) -> CyclePhase:
-    """Classify the business cycle by rule (SPEC §5.3).
+    """Classify the business cycle by rule.
 
     Deliberately simple and deliberately legible. The ordering encodes which
     signal dominates: an inverted curve with rising unemployment is a

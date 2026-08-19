@@ -1,11 +1,7 @@
-"""Execution layer (SPEC §3).
+"""Execution layer: sizing, orders, venues, brokers, fill models.
 
-Everything below the boundary: sizing, orders, venues, brokers, fill models.
-The only package permitted to name a broker or an order type.
-
-**Swapping executors is exactly one config value** (SPEC §2.2). That is what
-:func:`get_executor` is for: when the C++ engine exists, ``EXECUTOR=grpc``
-switches to it and nothing outside this package changes.
+The only package permitted to name a broker or an order type. Swapping
+executors is one config value.
 """
 
 from __future__ import annotations

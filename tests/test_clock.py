@@ -1,4 +1,4 @@
-"""Unit tests for the clock abstraction (SPEC §4.1)."""
+"""Unit tests for the clock abstraction."""
 
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def test_simulation_clock_refuses_to_move_backwards() -> None:
 
 
 def test_simulation_clock_is_deterministic() -> None:
-    # SPEC §9: identical inputs, identical output.
+    # Determinism: identical inputs, identical output.
     a = SimulationClock(datetime(2024, 1, 1, tzinfo=UTC))
     b = SimulationClock(datetime(2024, 1, 1, tzinfo=UTC))
     a.advance_by(timedelta(days=3))

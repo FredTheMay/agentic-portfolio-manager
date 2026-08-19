@@ -1,43 +1,16 @@
-"""Options and forwards: payoffs, parity, and carry.
+"""Option and forward pricing, payoffs, and parity checks.
 
-CFA Level I topic area: Derivatives (SPEC §6.7).
+Discrete compounding throughout, matching the CFA Level I convention.
 
-Pure functions, zero I/O, ``Decimal`` throughout. Discrete compounding
-``(1 + r)^T`` is used everywhere, matching the Level I convention.
+Two parity checks ship, and they are not interchangeable. Strict equality
+``C + PV(X) = P + S0`` is an arbitrage identity for *European* options only.
+US listed equity options are American, and the right to exercise early makes
+the identity an inequality, so applying the strict form to them flags the
+early-exercise premium as free money on every legitimate quote. Index options
+use :func:`european_put_call_parity`; equity options use
+:func:`american_parity_breach`, which reports only breaches outside the bounds.
 
-**Nothing here trades.** The protective-put overlay (SPEC §6.7) is simulated:
-the system displays the payoff diagram and the cost drag when portfolio
-volatility breaches the IPS ceiling, and never sends an option order.
-
-Which parity check this system uses, and why
---------------------------------------------
-``C + PV(X) = P + S0`` is an **arbitrage identity for European options only**.
-It is enforced by a replication argument that assumes neither side can be
-exercised early.
-
-US listed equity options are American. The right to exercise early has value,
-so the identity becomes a pair of inequalities and a strict equality check
-fires constantly on perfectly legitimate quotes — it flags the early-exercise
-premium as though it were free money.
-
-This module therefore ships both, and the system uses them differently:
-
-* :func:`european_put_call_parity` — strict equality. Valid **only** for
-  European-style contracts, i.e. cash-settled index options such as SPX.
-* :func:`american_parity_breach` — the bounds
-  ``S0 - D - X <= C - P <= S0 - PV(X)``. This is what runs against US listed
-  equity options, and only a breach *outside* the bounds is reported.
-
-Forwards versus futures
------------------------
-Both lock in a price today for delivery later, and the pricing formula here is
-the forward's. They differ in credit and cash-flow profile: a forward is a
-bilateral OTC contract whose entire gain or loss accrues as counterparty
-exposure until settlement, whereas a future is exchange-traded and marked to
-market daily through a clearinghouse, so exposure resets each day and margin
-calls arrive as real cash flows. When rates are correlated with the underlying
-those interim flows are not value-neutral, which is why forward and futures
-prices need not be identical.
+Nothing here trades. The protective-put overlay is displayed, never sent.
 """
 
 from __future__ import annotations
@@ -108,7 +81,7 @@ def forward_price(
 ) -> Decimal:
     """``F0 = (S0 - PV(dividends))(1 + r)^T``.
 
-    SPEC §6.7 [CORRECTED]. The naive ``S0(1 + r)^T`` ignores the carry benefit
+    . The naive ``S0(1 + r)^T`` ignores the carry benefit
     of holding the stock: a dividend paid before delivery goes to the *holder*,
     not the forward buyer, so it must be stripped out of the spot before
     compounding. Omitting it overstates the forward price on every
@@ -242,8 +215,7 @@ def american_parity_breach(
 ) -> ParityCheck:
     """Flag a quote only when ``C - P`` falls outside the American bounds.
 
-    This is the check the system runs against US listed equity options
-    (SPEC §6.7 [CORRECTED]).
+    This is the check the system runs against US listed equity options.
 
     CFA Level I: Derivatives — put-call parity, American options.
     """
@@ -458,8 +430,7 @@ def protective_put_breakeven(stock_cost: Decimal, put_premium: Decimal) -> Decim
 def protective_put_cost_drag(put_premium: Decimal, portfolio_value: Decimal) -> Decimal:
     """Premium as a fraction of the position it protects.
 
-    Displayed alongside the payoff diagram whenever the overlay is proposed
-    (SPEC §6.7), because the drag is certain and the protection is not.
+    Displayed alongside the payoff diagram whenever the overlay is proposed, because the drag is certain and the protection is not.
 
     CFA Level I: Derivatives — protective put.
     """

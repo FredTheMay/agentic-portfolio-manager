@@ -1,22 +1,12 @@
-"""SEC EDGAR fundamentals, indexed by filing date (SPEC §4.4).
+"""SEC EDGAR fundamentals, indexed by filing date.
 
-EDGAR's ``companyfacts`` API returns, for each XBRL tag, a list of facts that
-each carry both ``end`` (the fiscal period the number describes) and ``filed``
-(the date the filing hit the wire). This module keys visibility on **filed**,
-never on ``end`` — see :mod:`src.data.pit` for why that distinction is the
-whole ballgame.
+``companyfacts`` gives each XBRL fact both an ``end`` (the fiscal period) and a
+``filed`` date. Visibility keys on ``filed``.
 
-Two further conservatisms:
-
-**Publication lag.** EDGAR reports ``filed`` as a date with no time. Treating a
-filing as public at 00:00 UTC on that date would make it visible before the US
-market opened, which is a small lookahead. Filings are instead treated as
-public at the *end* of the filing day (``PUBLICATION_LAG``, default 1 day). If
-the effect is wrong it is wrong in the safe direction.
-
-**Restatements are kept.** A later filing that restates an earlier period is
-stored as a separate vintage rather than overwriting it, so a query in the
-intervening window still returns the figure the market actually had.
+Two conservatisms. Filings become visible at the *end* of the filing day, since
+``filed`` has no time component and 00:00 UTC would precede the US open. And a
+restatement is stored as a separate vintage rather than overwriting, so a query
+in the intervening window still returns the figure the market had.
 """
 
 from __future__ import annotations

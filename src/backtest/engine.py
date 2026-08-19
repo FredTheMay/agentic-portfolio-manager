@@ -1,27 +1,13 @@
-"""The backtest engine (SPEC §4.2, M6).
+"""Event-driven backtest engine.
 
-An **event loop**, not ``for day in trading_days:``. Events arrive at instants
-from a :class:`~src.data.events.MarketDataSource`, the
-:class:`~src.time.clock.SimulationClock` is advanced to each one, and the
-identical code path runs against a live feed. That is the whole reason the
-clock and the event model were built first: a date-indexed loop would have to
-be rewritten to add intraday, and this one does not.
+Events arrive at instants and the simulation clock is advanced to each one, so
+the identical code path would run against a live feed. A date-indexed loop
+would have to be rewritten to support intraday; this one would not.
 
-One cycle, in order:
-
-1. estimate inputs from the trailing window (shrunk covariance, CAPM returns)
-2. optimize (:mod:`src.decision.optimizer`)
-3. **risk engine** (:mod:`src.risk.engine`) — approve, modify, or veto
-4. emit a mandate (:mod:`src.decision.mandate`)
-5. execute across the boundary (:mod:`src.execution`)
-6. **reconcile** realized against target and carry the drift forward
-
-Step 6 is not optional. Realized weights never equal target weights, and a
-system that assumes they do produces backtests that lie (SPEC §3.4).
-
-Determinism: no wall clock, no randomness, no dict-order dependence. Two runs
-over identical inputs produce byte-identical output, checked by
-:func:`result_digest` (SPEC §9, §11).
+One cycle: estimate inputs from the trailing window, optimize, run the risk
+engine, emit a mandate, execute across the boundary, reconcile realized against
+target. Reconciliation is not optional — realized weights never equal target
+weights, and a system that assumes they do produces backtests that lie.
 """
 
 from __future__ import annotations
@@ -64,7 +50,7 @@ class BacktestConfig:
     initial_cash: Decimal
     symbols: tuple[str, ...]
     benchmark_symbol: str
-    #: Trading days between rebalance attempts. The corridor check (SPEC §7)
+    #: Trading days between rebalance attempts. The corridor check
     #: still decides whether a proposed rebalance is worth doing.
     rebalance_every: int = 21
     #: Trailing observations used to estimate the covariance.
@@ -114,7 +100,7 @@ class BacktestResult:
 
 
 def _close(event: MarketEvent) -> Decimal | None:
-    """Unadjusted close, for share arithmetic (SPEC §4.4)."""
+    """Unadjusted close, for share arithmetic."""
     if isinstance(event.payload, BarPayload):
         return event.payload.close
     return None
@@ -138,11 +124,11 @@ def run_backtest(
 ) -> BacktestResult:
     """Run the event loop from ``config.start`` to ``config.end``.
 
-    ``views`` supplies the qualitative half (SPEC §5.4). It defaults to
+    ``views`` supplies the qualitative half. It defaults to
     :class:`~src.agents.pipeline.NoViews`, so the engine is pure quantitative
     construction unless a caller opts in — and swapping in an agent pipeline
     backed by ``NullProvider`` changes nothing about whether the cycle
-    completes (SPEC §2.1(4)).
+    completes).
     """
     view_pipeline = views or NoViews()
     start = ensure_utc(config.start)
@@ -206,7 +192,7 @@ def run_backtest(
             peak_equity = value
         drawdown = (peak_equity - value) / peak_equity if peak_equity > ZERO else ZERO
 
-        # window + 1 prices are needed to form `window` returns.
+        # Window + 1 prices are needed to form `window` returns.
         ready = min(len(history[s]) for s in config.symbols) > config.estimation_window
         due = bars_seen - last_rebalance_index >= config.rebalance_every
         if not (ready and due):
@@ -287,7 +273,7 @@ def _rebalance(
             note=f"only {len(symbols)} symbols had enough history to optimize over",
         )
 
-    # Returns over the trailing window, from *adjusted* prices (SPEC §4.4).
+    # Returns over the trailing window, from *adjusted* prices.
     observations: list[list[Decimal]] = []
     for index in range(-window, 0):
         row: list[Decimal] = []
@@ -305,7 +291,7 @@ def _rebalance(
     }
 
     # The qualitative layer enters here and nowhere else: as an additive
-    # adjustment to the CAPM baseline, produced by table lookup (SPEC §5.4).
+    # adjustment to the CAPM baseline, produced by table lookup.
     tilts = views.tilts(symbols, stamp)
 
     try:
@@ -410,7 +396,7 @@ def _no_trade(
 
 
 def result_digest(result: BacktestResult) -> str:
-    """Stable hash of a run's output (SPEC §11: two runs, identical hashes).
+    """Stable hash of a run's output.
 
     Covers the equity curve and every mandate id, so a change in either the
     marks or the decisions moves the digest.

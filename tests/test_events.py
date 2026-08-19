@@ -1,4 +1,4 @@
-"""Unit tests for the event model (SPEC §4.2, §4.4)."""
+"""Unit tests for the event model."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def test_bar_accepts_decimals() -> None:
 
 
 def test_bar_rejects_float_prices() -> None:
-    # SPEC §9: money is never float. Binary rounding error compounds silently
+    # Money is never float. Binary rounding error compounds silently
     # across a backtest, so it is refused at construction.
     with pytest.raises(MarketDataError, match="never float"):
         a_bar(close=101.25)
@@ -59,7 +59,7 @@ def test_bar_rejects_non_integer_volume() -> None:
 
 
 def test_bar_keeps_adjusted_and_unadjusted_separate() -> None:
-    # SPEC §4.4: adjusted for returns, unadjusted for share arithmetic, never
+    # Adjusted for returns, unadjusted for share arithmetic, never
     # mixed. Two fields make that mistake impossible to make silently.
     bar = a_bar(close=D("200.00"), adj_close=D("100.00"))
     assert bar.close != bar.adj_close

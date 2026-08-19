@@ -1,6 +1,6 @@
 """Portfolio construction and risk-adjusted performance.
 
-CFA Level I topic area: Portfolio Management (SPEC §6.2).
+CFA Level I topic area: Portfolio Management.
 
 Pure functions, zero I/O. ``Decimal`` at every public boundary; matrix algebra
 and constrained optimization run in float64 through :mod:`src.cfa._numeric`.
@@ -111,7 +111,7 @@ def minimum_variance_portfolio(
     """Global minimum-variance portfolio: ``min w'Sigma w`` s.t. ``sum(w) = 1``.
 
     Closed form ``w = Sigma^-1 1 / (1' Sigma^-1 1)``. Unconstrained beyond the
-    budget constraint, so weights may be negative; the IPS layer (SPEC §7) is
+    budget constraint, so weights may be negative; the IPS layer is
     what forbids shorting, not this function.
 
     CFA Level I: Portfolio Management — minimum-variance portfolio.
@@ -205,7 +205,7 @@ def efficient_frontier(
     plotted as though they were.
 
     Long-only by default, because that is the mandate this system operates
-    under (SPEC §7 ``NO_SHORTING``) and an unconstrained frontier would be
+    under and an unconstrained frontier would be
     advertising portfolios the risk engine will always veto. Weight constraints
     are also half the defense against mean-variance instability — the other
     half is shrinking the covariance estimate (:func:`ledoit_wolf_covariance`).
@@ -508,7 +508,7 @@ def ledoit_wolf_covariance(
     reduction. Together with weight constraints (:func:`efficient_frontier`),
     that is this system's defense against MVO instability.
 
-    CFA Level I: Portfolio Management — covariance estimation (SPEC §6.2).
+    CFA Level I: Portfolio Management — covariance estimation.
     """
     matrix = _observation_matrix(observations)
     covariance, intensity = ledoit_wolf(matrix, assume_centered=False)

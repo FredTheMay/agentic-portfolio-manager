@@ -1,4 +1,4 @@
-"""Lambda handlers, state store, and the WebSocket broadcaster (SPEC §9, §10, M10)."""
+"""Lambda handlers, state store, and the WebSocket broadcaster."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ NOW = datetime(2024, 6, 3, 21, tzinfo=UTC)
 
 
 # ---------------------------------------------------------------------------
-# State store
+# state store
 # ---------------------------------------------------------------------------
 
 
@@ -62,7 +62,7 @@ def test_audit_events_are_appended() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Scheduled cycle
+# scheduled cycle
 # ---------------------------------------------------------------------------
 
 
@@ -98,7 +98,7 @@ def test_replaying_a_cycle_is_idempotent() -> None:
 
 
 def test_a_cycle_uses_the_injected_clock() -> None:
-    # SPEC §4.1: no module reads the wall clock, including the Lambda handler.
+    # No module reads the wall clock, including the Lambda handler.
     payload = run_cycle(store=InMemoryStateStore(), clock=SimulationClock(NOW))
     assert payload["as_of"] == NOW.isoformat()
 
@@ -113,7 +113,7 @@ def test_build_store_falls_back_to_memory_without_a_table(monkeypatch: pytest.Mo
 
 
 # ---------------------------------------------------------------------------
-# WebSocket broadcaster
+# webSocket broadcaster
 # ---------------------------------------------------------------------------
 
 

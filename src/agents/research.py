@@ -1,14 +1,12 @@
-"""Research Agent (SPEC §5.1).
+"""Research agent: forms a categorical view from recent headlines.
 
-Reads recent headlines and forms a categorical view. Implements CFA Standard
-V(A), reasonable basis, mechanically: **a view without at least one dated
-citation is discarded to NEUTRAL.** Not warned about, not logged and kept —
-discarded. A recommendation the model cannot point at a source for is exactly
-the output that is most confident and least grounded.
+A view without at least one dated citation is discarded to NEUTRAL, as is one
+citing a source that was never supplied. A recommendation the model cannot
+point at a source for is the output that is most confident and least grounded.
 
-Headlines are filtered by ``as_of`` before they reach the prompt. An agent that
-reads tomorrow's news is a lookahead bug wearing a costume, and it would be
-invisible in the backtest results.
+Headlines are filtered by ``as_of`` before they reach the prompt: an agent
+reading tomorrow's news is a lookahead bug that would be invisible in the
+results.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ from src.audit.log import AuditEvent, AuditLog, Standard
 from src.llm.base import LLMProvider, Stance
 from src.time.clock import ensure_utc
 
-#: SPEC §5.1: headlines from the last 14 days.
+#: headlines from the last 14 days.
 LOOKBACK = timedelta(days=14)
 
 SYSTEM_PROMPT = """You are an equity research analyst.

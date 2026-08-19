@@ -1,28 +1,14 @@
-"""Point-in-time data access (SPEC §4.4).
+"""Point-in-time data access.
 
-The mechanism that makes lookahead bias structurally impossible rather than
-merely discouraged.
+Every datum carries two instants: ``period_end``, what it describes, and
+``published``, when it became public. **Only ``published`` decides
+visibility.** Indexing fundamentals by fiscal period end is the classic
+backtest error — FY2023 figures describe a period ending 31 December but are
+not filed until February, so a period-indexed store hands a January query six
+weeks of hindsight.
 
-Every datum carries two instants:
-
-``period_end``
-    what the datum *describes* — a fiscal quarter, a reference month.
-``published``
-    when it *became public* — a filing date, a release timestamp.
-
-**Only ``published`` decides visibility.** Indexing fundamentals by fiscal
-period end is the classic backtest error: FY2023 figures describe a period
-ending 31 December but are not filed until February, so a period-indexed store
-serves them to a January query and the backtest trades six weeks of hindsight.
-
-The same applies to revisions. Macro series are restated, and the restatement
-must not leak backwards: a query in late April must see the April release of a
-Q1 number, not the May revision, because that is what the world believed at the
-time.
-
-This module is generic over the value type. EDGAR fundamentals
-(:mod:`src.data.edgar`) and FRED series (:mod:`src.data.fred`) both store their
-observations here rather than reimplementing the visibility rule.
+The same rule covers revisions: a restatement must not leak backwards into the
+window before it was published.
 """
 
 from __future__ import annotations
@@ -53,7 +39,7 @@ class Vintage(Generic[T]):
     value: T
 
     def __post_init__(self) -> None:
-        # frozen dataclass: normalize through object.__setattr__.
+        # Frozen dataclass: normalize through object.__setattr__.
         period_end = ensure_utc(self.period_end)
         published = ensure_utc(self.published)
         if published < period_end:

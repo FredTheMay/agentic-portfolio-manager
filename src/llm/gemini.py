@@ -1,17 +1,8 @@
-"""Google Gemini provider (SPEC §8).
+"""Google Gemini provider.
 
-Primary provider. AI Studio's free tier allows on the order of 1,500
-requests/day with no card, and the large context window suits handing a model a
-whole filing. **Free-tier quotas change often — verify before relying on one.**
-
-Free tiers generally train on their inputs. Everything this system sends is
-public market data, which is fine, but the README says so rather than leaving
-it unstated.
-
-Structured output is requested through ``responseSchema`` and the result is
-validated with Pydantic regardless. A model that claims to honor a schema and
-does not is exactly the case :class:`~src.llm.cache.ResilientProvider` exists
-to absorb.
+Structured output is requested through ``responseSchema`` and validated with
+Pydantic regardless — a model that claims to honor a schema and does not is
+exactly what the resilient wrapper exists to absorb.
 """
 
 from __future__ import annotations
@@ -80,7 +71,7 @@ class GeminiProvider(LLMProvider):
                 "responseMimeType": "application/json",
                 "responseSchema": _strip_unsupported(schema.model_json_schema()),
                 # Determinism matters more than variety here: the same prompt
-                # should give the same view (SPEC §9).
+                # should give the same view.
                 "temperature": 0,
             },
         }

@@ -1,29 +1,10 @@
-"""Portfolio construction (SPEC §4, §6.2).
+"""Portfolio construction: expected returns, shrunk covariance, target weights.
 
-Decides **what to hold**. Emits weights. Knows nothing about orders, venues,
-fills, or brokers — see :mod:`src.decision.mandate` for the whole surface this
-layer exposes downstream, and SPEC §2.2 for why the separation is enforced by
-CI rather than by convention.
-
-On mean-variance instability
-----------------------------
-MVO is notoriously sensitive to its inputs. It treats estimation error as
-signal: feed it historical mean returns and it concentrates into whichever
-assets happened to do well in the sample, and small changes to the window
-produce completely different portfolios. Two defenses are applied here, and
-they are the answer to "how do you handle MVO instability?":
-
-1. **Shrink the covariance estimate.** Ledoit-Wolf pulls the sample matrix
-   toward a structured target by an analytically optimal amount
-   (:func:`src.cfa.portfolio.ledoit_wolf_covariance`).
-2. **Constrain the weights.** A long-only frontier with a per-name cap bounds
-   how far the optimizer can chase a spurious estimate.
-
-There is a third, applied by default here: **do not use historical mean returns
-as the expected-return input.** Sample means are the single noisiest input to
-MVO. :func:`capm_expected_returns` builds them from betas and one market
-premium instead, which is a far more stable estimator even when the CAPM is
-imperfect.
+Mean-variance optimization treats estimation error as signal, so small changes
+in the sample produce wildly different portfolios. Three defenses are applied:
+Ledoit-Wolf shrinkage on the covariance, a long-only frontier with a per-name
+cap, and CAPM expected returns rather than sample means — sample means being
+the noisiest input MVO can be given.
 """
 
 from __future__ import annotations
@@ -87,7 +68,7 @@ class TargetPortfolio:
     volatility: Decimal
     sharpe: Decimal
     method: OptimizationMethod
-    #: The frontier the choice was made from, for the dashboard (SPEC §9, M9).
+    #: The frontier the choice was made from, for the dashboard.
     frontier: tuple[FrontierPoint, ...] = ()
 
 
@@ -96,7 +77,7 @@ def capm_expected_returns(
     market_return: Decimal,
     risk_free_rate: Decimal,
 ) -> dict[str, Decimal]:
-    """Expected returns from CAPM rather than from sample means (SPEC §6.2).
+    """Expected returns from CAPM rather than from sample means.
 
     Sample mean returns are the noisiest input MVO can be given: estimating a
     mean to useful precision needs decades of data, while estimating a
@@ -116,9 +97,9 @@ def apply_view_tilts(
     """Add the aggregator's numeric tilts to the baseline expected returns.
 
     The tilts arrive already numeric, from a fixed table in
-    ``config/view_mapping.yaml`` (SPEC §5.4). This function never sees a
+    ``config/view_mapping.yaml``. This function never sees a
     categorical view and never consults a model: an LLM's ``BULLISH`` becomes a
-    number by auditable configuration, not by judgment (SPEC §2.1).
+    number by auditable configuration, not by judgment.
     """
     tilted = dict(expected_returns)
     for symbol, tilt in tilts.items():

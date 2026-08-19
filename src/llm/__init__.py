@@ -1,4 +1,4 @@
-"""LLM provider layer (SPEC §8).
+"""LLM provider layer.
 
 Providers are interchangeable and swapping one touches nothing outside this
 package — selection is by the ``LLM_PROVIDER`` environment variable.
@@ -7,7 +7,7 @@ package — selection is by the ``LLM_PROVIDER`` environment variable.
 and is paid. Different companies, one letter apart.
 
 The LLM contributes qualitative judgment only; :mod:`src.llm.schema_guard`
-enforces that (SPEC §2.1), and :class:`~src.llm.null.NullProvider` means the
+enforces that, and :class:`~src.llm.null.NullProvider` means the
 whole system still runs with the LLM switched off.
 """
 
@@ -33,7 +33,7 @@ from src.llm.cache import (
 from src.llm.null import NullProvider
 from src.llm.schema_guard import InvalidLLMSchemaError, validate_llm_schema
 
-#: Environment variable selecting the provider (SPEC §8).
+#: Environment variable selecting the provider.
 PROVIDER_ENV = "LLM_PROVIDER"
 DEFAULT_PROVIDER = "null"
 

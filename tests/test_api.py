@@ -1,4 +1,4 @@
-"""Dashboard API (SPEC §9, M9)."""
+"""Dashboard API."""
 
 from __future__ import annotations
 
@@ -52,14 +52,14 @@ def test_health(client: TestClient) -> None:
 
 
 def test_every_response_carries_the_disclaimer(client: TestClient) -> None:
-    # SPEC §1: the banner is a required field, not a template detail, so no
+    # The banner is a required field, not a template detail, so no
     # screen can render without it.
     for path in ("/api/portfolio", "/api/performance", "/api/vetoes", "/api/status"):
         assert client.get(path).json()["disclaimer"] == DISCLAIMER
 
 
 def test_status_states_the_survivorship_limitation(client: TestClient) -> None:
-    # SPEC §4.4 requires this in the dashboard footer, not only the README.
+    # This belongs in the dashboard footer, not only the README.
     assert client.get("/api/status").json()["survivorship_notice"] == SURVIVORSHIP_NOTICE
 
 
@@ -78,7 +78,7 @@ def test_portfolio_returns_holdings(client: TestClient) -> None:
 
 
 def test_monetary_values_cross_the_wire_as_strings(client: TestClient) -> None:
-    # SPEC §3.2's rule applies here too: a weight round-tripped through a JSON
+    # 's rule applies here too: a weight round-tripped through a JSON
     # double is no longer the weight the risk engine approved.
     body = client.get("/api/portfolio").json()
     assert isinstance(body["total_value"], str)
@@ -110,7 +110,7 @@ def test_frontier_is_served_with_the_selected_portfolio(client: TestClient) -> N
 
 
 def test_vetoes_are_grouped_by_code(client: TestClient) -> None:
-    # SPEC §7 calls this the screen to demo first.
+    # This is the screen to demo first.
     body = client.get("/api/vetoes").json()
     assert body["total"] == len(body["vetoes"])
     for veto in body["vetoes"]:
@@ -133,7 +133,7 @@ def test_audit_trail_is_served(client: TestClient) -> None:
 
 
 def test_capabilities_name_the_advisory_constraints(client: TestClient) -> None:
-    # SPEC §3.2: a constraint the executor cannot honor is advisory, and the
+    # A constraint the executor cannot honor is advisory, and the
     # operator should see that without reading code.
     body = client.get("/api/capabilities").json()
     assert body["supports_participation_limits"] is False

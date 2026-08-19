@@ -1,14 +1,8 @@
-"""Reason codes and outcomes for the risk engine (SPEC §7).
+"""Reason codes and outcomes for the risk engine.
 
-Every veto carries a code. Codes are a closed enumeration rather than free text
-because they are persisted, counted, and surfaced in the dashboard's
-vetoed-trades panel — the screen SPEC §7 says to demo first. "The trade was
-rejected" is not an audit trail; ``MAX_SECTOR_WEIGHT`` on a named sector is.
-
-CFA Standard V(B), communication with clients: the assessment separates the
-*fact* of a violation (code, measured value, limit) from any narrative about
-it. The Narrator (SPEC §5.5) may phrase these for a human; it may not change
-them.
+Codes are a closed enumeration because they are persisted, counted and
+displayed. "The trade was rejected" is not an audit trail; a code with the
+measured value and the limit it breached is.
 """
 
 from __future__ import annotations
@@ -30,7 +24,7 @@ class Decision(str, enum.Enum):
 
 
 class ReasonCode(str, enum.Enum):
-    """The constraint table of SPEC §7, one code per rule."""
+    """The constraint table of , one code per rule."""
 
     MAX_POSITION_WEIGHT = "MAX_POSITION_WEIGHT"
     MAX_SECTOR_WEIGHT = "MAX_SECTOR_WEIGHT"

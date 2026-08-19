@@ -1,28 +1,15 @@
-"""Equity valuation.
+"""Equity valuation: dividend discount, FCFE, and justified multiples.
 
-CFA Level I topic area: Equity Investments (SPEC §6.5).
+CFA Level I topic area: Equity Investments.
 
-Pure functions, zero I/O, ``Decimal`` throughout.
+The system assumes semi-strong-form efficiency, so these models exist to
+produce a defensible required return and a sanity check on what is priced in,
+not to find mispricings.
 
-**Market efficiency.** This system assumes semi-strong-form efficiency. These
-models are not here to find mispricings the market has missed; they produce a
-defensible required return and a sanity check on what is already priced in.
-The objective is risk-adjusted construction under constraints, not alpha.
-
-**Valuation hierarchy** (SPEC §6.5 [CORRECTED]). A dividend discount model is
-useless for a company that pays no dividend, and most of a large-cap equity
-universe pays none. :func:`value_equity` applies the hierarchy explicitly:
-
-1. **DDM** where a dividend actually exists,
-2. **FCFE** otherwise — cash available to shareholders whether or not it is
-   distributed,
-3. **relative multiples** as the cross-check, never as the primary estimate,
-   since they only say a name is cheap *relative to* a sector that may itself
-   be mispriced.
-
-Every model here returns ``None`` rather than a number when its assumptions
-break. A ``None`` that propagates into "no view" is correct; a fabricated
-number that propagates into a portfolio weight is not.
+:func:`value_equity` applies the hierarchy explicitly: DDM where a dividend
+exists, FCFE otherwise, multiples as a cross-check. Every model returns
+``None`` rather than a number when its assumptions break — a ``None`` that
+becomes "no view" is correct; a fabricated number becomes a portfolio weight.
 """
 
 from __future__ import annotations
@@ -73,7 +60,7 @@ def justified_leading_pe(
 ) -> Decimal | None:
     """``P/E1 = payout / (r - g)`` — justified P/E on *next* year's earnings.
 
-    SPEC §6.5 [CORRECTED]: the leading form has no ``(1 + g)`` factor. That
+    the leading form has no ``(1 + g)`` factor. That
     factor belongs to the trailing form, which is stated on earnings already
     reported.
 
@@ -105,7 +92,7 @@ def enterprise_value(
 ) -> Decimal:
     """``EV = market cap + total debt - cash``.
 
-    SPEC §6.5 [CORRECTED]: cash is **subtracted**. EV is the cost of acquiring
+    cash is **subtracted**. EV is the cost of acquiring
     the operating business; the acquirer assumes the debt but immediately
     recovers the cash, so only net debt is a real cost.
 

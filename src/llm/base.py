@@ -1,9 +1,9 @@
-"""LLM provider abstraction (SPEC §8).
+"""LLM provider abstraction.
 
-All LLM output is Pydantic-validated structured data — never free text parsed
-by regex. Every call passes through :func:`~src.llm.schema_guard.validate_llm_schema`,
-so a numeric field in a response schema fails loudly at the boundary rather
-than quietly contaminating a portfolio weight.
+All output is Pydantic-validated structured data, never free text parsed by
+regex. Every call passes through :func:`~src.llm.schema_guard.validate_llm_schema`,
+so a numeric field in a response schema fails at the boundary rather than
+contaminating a portfolio weight.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ M = TypeVar("M", bound=BaseModel)
 
 
 class Stance(str, enum.Enum):
-    """The categorical view an LLM agent is permitted to express (SPEC §2.1).
+    """The categorical view an LLM agent is permitted to express.
 
     A ``str`` enum, not an ``IntEnum``: an integer here would be a number the
     LLM produced, and downstream code could do arithmetic on it.
@@ -36,7 +36,7 @@ class Stance(str, enum.Enum):
 
 
 #: The only integer an LLM may emit: an ordinal 1-5, mapped to numeric tilts by
-#: ``config/view_mapping.yaml`` (SPEC §5.4) rather than used in arithmetic.
+#: ``config/view_mapping.yaml`` rather than used in arithmetic.
 Conviction = Annotated[int, CONVICTION_MARKER, Field(ge=1, le=5)]
 
 
@@ -52,7 +52,7 @@ class InvalidResponseError(LLMError):
     """Model output failed schema validation."""
 
 
-#: SPEC §2.1(3): two reparse attempts, then fall back to NEUTRAL and continue.
+#: (3): two reparse attempts, then fall back to NEUTRAL and continue.
 #: A pipeline that halts because one model returned malformed JSON is worse
 #: than one that records "no view" and keeps going.
 MAX_REPARSE_ATTEMPTS = 2
@@ -63,7 +63,7 @@ class TokenBucket:
     """Client-side rate limiter.
 
     Takes a :class:`~src.time.clock.Clock` rather than reading the wall clock,
-    for the same reason everything else does (SPEC §4.1) — and usefully, it
+    for the same reason everything else does — and usefully, it
     means a test can exhaust and refill a bucket without sleeping.
     """
 
@@ -108,7 +108,7 @@ class LLMProvider(ABC):
     """A source of structured, schema-validated qualitative judgment.
 
     Subclasses implement :meth:`_complete`. :meth:`complete` is deliberately
-    not overridable in spirit — it is where the §2.1 guard runs.
+    not overridable in spirit — it is where the guard runs.
     """
 
     #: Stable identifier used in cache keys and the audit log.

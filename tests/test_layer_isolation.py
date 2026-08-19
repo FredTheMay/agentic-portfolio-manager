@@ -1,4 +1,4 @@
-"""Structural test 2 — SPEC §2.2: the decision layer knows nothing about execution.
+"""Structural test 2 — the decision layer knows nothing about execution.
 
 The portfolio manager decides *what to hold*. It emits a ``RebalanceMandate``
 of target weights and receives an ``ExecutionReport``. That is the entire
@@ -19,10 +19,10 @@ DECISION = SRC / "decision"
 EXECUTION = SRC / "execution"
 
 #: Order-placement surface. Any of these above the boundary means some module
-#: has learned about orders, venues, or fills (SPEC §2.2).
+#: has learned about orders, venues, or fills.
 #:
 #: Note this is deliberately *not* a ban on the string "alpaca". Alpaca is both
-#: a market data vendor and a broker, and SPEC §10 M2 puts "EDGAR/FRED/Alpaca
+#: a market data vendor and a broker, and M2 puts "EDGAR/FRED/Alpaca
 #: behind MarketDataSource" in the data layer. Reading price bars from a vendor
 #: that also happens to broker trades leaks no execution semantics; calling its
 #: trading API does. The hosts differ, so the check can be precise.
@@ -66,7 +66,7 @@ def test_decision_layer_does_not_import_execution() -> None:
                 violations.append(f"{path.relative_to(ROOT)} imports {module}")
 
     assert not violations, (
-        "decision layer imported execution (SPEC §2.2):\n" + "\n".join(violations)
+        "decision layer imported execution:\n" + "\n".join(violations)
     )
 
 
@@ -81,7 +81,7 @@ def test_order_placement_appears_only_below_the_boundary() -> None:
                 violations.append(f"{path.relative_to(ROOT)} mentions {token!r}")
 
     assert not violations, (
-        "order-placement surface outside src/execution/ (SPEC §2.2):\n" + "\n".join(violations)
+        "order-placement surface outside src/execution/:\n" + "\n".join(violations)
     )
 
 
@@ -96,7 +96,7 @@ def test_decision_layer_does_not_name_a_broker() -> None:
                 violations.append(f"{path.relative_to(ROOT)} names {name!r}")
 
     assert not violations, (
-        "broker named in the decision layer (SPEC §2.2):\n" + "\n".join(violations)
+        "broker named in the decision layer:\n" + "\n".join(violations)
     )
 
 
@@ -120,15 +120,9 @@ def test_both_layers_exist() -> None:
 def test_production_code_never_imports_the_test_suite() -> None:
     """``src/`` must not depend on ``tests/``.
 
-    This existed as a real defect: ``src/api/routes.py`` and
-    ``src/api/handler.py`` both imported the synthetic data generator from
-    ``tests/synthetic.py``. It passed every check, because the tests are always
-    present when the tests run — and it would have broken the Lambda the moment
-    anything packaged only ``src/``.
-
-    The generator now lives in ``src/data/synthetic.py``, where it belongs: it
-    is a real ``MarketDataSource``, and production code legitimately falls back
-    to it when nothing has been recorded.
+    A module under ``src/`` that imports from ``tests/`` passes every local
+    check, because the tests are present whenever the tests run, and then fails
+    at runtime wherever only ``src/`` is packaged.
     """
     violations: list[str] = []
     for path in sorted(SRC.rglob("*.py")):

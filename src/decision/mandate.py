@@ -1,21 +1,12 @@
-"""The rebalance mandate — the entire decision→execution surface (SPEC §3).
+"""The rebalance mandate: the entire decision-to-execution surface.
 
-The decision layer emits **target weights, not orders.**
+The decision layer emits **target weights, not orders**. Weights are the actual
+decision; share counts are a function of weights, prices and portfolio value at
+execution time, and a real execution algorithm recomputes them as it works the
+order. Weights also keep the mandate valid while it is being worked.
 
-Weights are the actual decision. Share counts are a function of weights,
-prices, and portfolio value *at execution time*, and a real execution algorithm
-has to recompute them as it works an order over minutes. Emitting fixed share
-counts would force the execution engine to either ignore them or
-reverse-engineer the intent behind them. Weights also make the mandate
-price-independent, so it stays valid while it is being worked.
-
-Sizing therefore belongs below the boundary. This module's job ends at intent
-plus the constraints that intent must respect.
-
-Nothing here imports :mod:`src.execution`, and an import-linter contract fails
-the build if that ever changes. The mapping to ``proto/execution.proto`` is
-:meth:`RebalanceMandate.to_wire`, which emits decimal **strings** — never
-floats — so the C++ engine reads exactly what was decided.
+``to_wire`` emits decimal strings — a float at the one place two languages must
+agree exactly is the worst place for binary rounding.
 """
 
 from __future__ import annotations
@@ -80,7 +71,7 @@ class ExecutionConstraints:
     ``max_participation_rate`` is ignored by the naive executor. That is not a
     silent failure: the caller checks
     :attr:`Capabilities.supports_participation_limits` and logs the constraint
-    as advisory rather than assuming it was honored (SPEC §3.2).
+    as advisory rather than assuming it was honored.
     """
 
     min_trade_notional: Decimal
@@ -133,7 +124,7 @@ class RebalanceMandate:
 
         Every monetary and ratio value is a decimal string. A float here would
         put binary rounding at the one place two languages have to agree
-        exactly (SPEC §3.2).
+        exactly.
         """
         return {
             "mandate_id": self.mandate_id,
@@ -154,7 +145,7 @@ def mandate_id(
 
     Derived from the content rather than randomly generated, so replaying an
     identical decision produces an identical id and the executor can recognise
-    and drop the duplicate. That also keeps SPEC §9's promise that two runs
+    and drop the duplicate. That also keeps 's promise that two runs
     over identical inputs produce a byte-identical trade log — a UUID here
     would break both properties at once.
     """
@@ -215,7 +206,7 @@ def build_mandate(
 
 @dataclass(frozen=True, slots=True)
 class Reconciliation:
-    """Post-trade drift between what was decided and what was achieved (SPEC §3.4).
+    """Post-trade drift between what was decided and what was achieved.
 
     Realized weights never equal target weights. Recording the residual is
     mandatory: it feeds the next cycle's corridor check, and a system that

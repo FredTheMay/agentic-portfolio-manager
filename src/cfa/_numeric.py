@@ -1,20 +1,12 @@
-"""The one place ``Decimal`` meets ``float`` (SPEC §9).
+"""The one place ``Decimal`` meets ``float``.
 
-Money and weights are ``Decimal`` at every public boundary in ``src.cfa``. But
-three kinds of computation have no exact-decimal implementation and never will:
+Matrix inversion, least-squares regression and iterative root-finding have no
+exact-decimal implementation, so they run in float64 and convert back here.
+Confining both directions to one module leaves a single place to audit rather
+than a float leaking quietly into a cash calculation.
 
-* matrix inversion and quadratic forms (portfolio variance, MVO, shrinkage),
-* least-squares regression (beta, alpha, R²),
-* iterative root-finding (IRR, YTM).
-
-Those run in IEEE-754 float64 through numpy/scipy — the right tool for an
-iterative solve — and convert back at the boundary. Confining both directions
-of that conversion to this module means there is exactly one place to audit,
-rather than a float leaking quietly into a cash calculation somewhere.
-
-``float`` -> ``Decimal`` goes through ``repr``, which round-trips a float64
-exactly, so the conversion adds no error of its own beyond what the float
-computation already carried.
+``float`` to ``Decimal`` goes through ``repr``, which round-trips a float64
+exactly.
 """
 
 from __future__ import annotations

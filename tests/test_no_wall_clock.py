@@ -1,4 +1,4 @@
-"""Structural test 1 — SPEC §4.1: no module may read the wall clock directly.
+"""Structural test 1 — no module may read the wall clock directly.
 
 Everything takes a :class:`~src.time.clock.Clock`. This is what lets the
 identical code path run a three-year backtest and a live daily cycle; a stray
@@ -49,7 +49,7 @@ def test_no_direct_wall_clock_reads() -> None:
                     rel = path.relative_to(SRC.parent)
                     violations.append(f"{rel}:{lineno}: {pattern} — {remedy}")
 
-    assert not violations, "wall-clock reads outside src/time/ (SPEC §4.1):\n" + "\n".join(
+    assert not violations, "wall-clock reads outside src/time/:\n" + "\n".join(
         violations
     )
 

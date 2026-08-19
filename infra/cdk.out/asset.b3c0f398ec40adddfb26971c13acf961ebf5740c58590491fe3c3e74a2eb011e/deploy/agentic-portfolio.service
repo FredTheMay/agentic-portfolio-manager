@@ -1,0 +1,47 @@
+# systemd unit for the read-only dashboard API (M11, EC2).
+#
+# Binds 127.0.0.1 deliberately: nginx is the only thing that should reach it,
+# and binding 0.0.0.0 would expose the API directly regardless of the security
+# group.
+
+[Unit]
+Description=Agentic Portfolio Manager API (paper trading simulation)
+Documentation=https://github.com/FredTheMay/agentic-portfolio-manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=appuser
+Group=appuser
+WorkingDirectory=/opt/agentic-portfolio
+
+# Credentials live in a root-owned file readable only by appuser. They are
+# needed only to REFRESH the cache; the API itself replays offline.
+EnvironmentFile=-/etc/agentic-portfolio.env
+Environment=PYTHONPATH=/opt/agentic-portfolio
+Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/opt/agentic-portfolio/.venv/bin/uvicorn \
+    --factory src.api.routes:app_from_environment \
+    --host 127.0.0.1 --port 8000 --workers 1
+
+Restart=on-failure
+RestartSec=5
+
+# The startup backtest is CPU-bound and takes a while on a small instance.
+TimeoutStartSec=300
+
+# Hardening: the service reads a cache and serves JSON. It needs nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/agentic-portfolio/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=1400M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,14 +1,13 @@
-"""Enforcement of SPEC §2.1: the LLM proposes, deterministic code disposes.
+"""Rejects numeric fields in LLM response schemas.
 
-"Any numeric field in an LLM response schema is a bug." This module turns that
-sentence into a check that runs on every provider call, so the invariant cannot
-decay into a convention that someone quietly breaks under deadline.
+The LLM contributes qualitative judgment; every number is computed in Python.
+This check runs inside :meth:`LLMProvider.complete`, so the invariant cannot
+decay into a convention someone quietly breaks.
 
-Rejected: ``float``, ``Decimal``, ``complex``, ``int``, and any ``IntEnum``.
-Allowed: ``str``, ``bool``, string enums, nested models, and the single
-sanctioned integer — :data:`src.llm.base.Conviction`, a 1–5 ordinal that is
-mapped to numeric tilts by an auditable config table rather than used directly
-in arithmetic (SPEC §5.4).
+Rejected: ``float``, ``Decimal``, ``complex``, ``int``, and any ``IntEnum``,
+which would smuggle a number past a categorical-looking field. The one
+sanctioned integer is :data:`src.llm.base.Conviction`, a 1-5 ordinal mapped to
+tilts by configuration rather than used in arithmetic.
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ class InvalidLLMSchemaError(TypeError):
 
 
 class ConvictionMarker:
-    """Marks the one integer an LLM is permitted to emit (SPEC §2.1)."""
+    """Marks the one integer an LLM is permitted to emit."""
 
     def __repr__(self) -> str:
         return "ConvictionMarker()"
@@ -83,7 +82,7 @@ def _check_annotation(
             if issubclass(annotation, int):
                 raise InvalidLLMSchemaError(
                     f"{path}: IntEnum {annotation.__name__} is numeric; "
-                    "use a str-valued enum (SPEC §2.1)"
+                    "use a str-valued enum"
                 )
             return
 
@@ -93,7 +92,7 @@ def _check_annotation(
         if issubclass(annotation, _FORBIDDEN_SCALARS):
             raise InvalidLLMSchemaError(
                 f"{path}: field of type {annotation.__name__} is numeric. "
-                "The LLM may not produce numbers — compute this in Python (SPEC §2.1)."
+                "The LLM may not produce numbers — compute this in Python."
             )
 
         if issubclass(annotation, int):
@@ -102,7 +101,7 @@ def _check_annotation(
             raise InvalidLLMSchemaError(
                 f"{path}: integer field is numeric. The only integer an LLM may "
                 "emit is a conviction ordinal — annotate it with "
-                "src.llm.base.Conviction (SPEC §2.1)."
+                "src.llm.base.Conviction."
             )
 
 
@@ -127,6 +126,6 @@ def validate_llm_schema(schema: type[BaseModel]) -> None:
     """
     if not (isinstance(schema, type) and issubclass(schema, BaseModel)):
         raise InvalidLLMSchemaError(
-            f"LLM response schema must be a pydantic BaseModel, got {schema!r} (SPEC §2.1)"
+            f"LLM response schema must be a pydantic BaseModel, got {schema!r}"
         )
     _walk_model(schema, path=schema.__name__, seen=set())

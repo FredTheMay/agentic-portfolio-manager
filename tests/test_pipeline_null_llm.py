@@ -1,4 +1,4 @@
-"""Structural test 3 — SPEC §2.1(4): the system works with the LLM disabled.
+"""Structural test 3(4): the system works with the LLM disabled.
 
 At M0 there is no pipeline yet, so this exercises the contract every future
 stage depends on: ``NullProvider`` answers any agent schema neutrally, without
@@ -44,7 +44,7 @@ PIPELINE_SYMBOLS = (
 
 
 class Citation(BaseModel):
-    """A dated source. SPEC §5.1 discards any view lacking one."""
+    """A dated source. discards any view lacking one."""
 
     url: str
     published: str
@@ -52,7 +52,7 @@ class Citation(BaseModel):
 
 
 class ResearchView(BaseModel):
-    """Shape of the M7 Research Agent output (SPEC §5.1)."""
+    """Shape of the M7 Research Agent output."""
 
     ticker: str
     stance: Stance
@@ -62,7 +62,7 @@ class ResearchView(BaseModel):
 
 
 class MacroNarrative(BaseModel):
-    """Narrative-only output; the cycle phase is classified by rule (SPEC §5.3)."""
+    """Narrative-only output; the cycle phase is classified by rule."""
 
     stance: Stance
     commentary: str
@@ -94,7 +94,7 @@ def test_null_provider_handles_optionals_and_nested_models() -> None:
 
 
 def test_null_provider_is_deterministic() -> None:
-    # SPEC §9: identical inputs produce identical output.
+    # Determinism: identical inputs produce identical output.
     provider = NullProvider()
     first = provider.complete("s", "u", ResearchView)
     second = provider.complete("s", "u", ResearchView)
@@ -186,7 +186,7 @@ def test_underivable_field_fails_loudly() -> None:
 
 
 # ===========================================================================
-# The acceptance criterion (SPEC §11): the full pipeline, LLM disabled
+# the acceptance criterion: the full pipeline, LLM disabled
 # ===========================================================================
 #
 # Everything above tests the provider contract. This section runs the actual
@@ -250,7 +250,7 @@ def pipeline_config() -> BacktestConfig:
 
 
 def test_the_full_cycle_runs_with_the_llm_disabled() -> None:
-    """SPEC §11: 'Full pipeline runs with NullProvider (no LLM)'."""
+    """'Full pipeline runs with NullProvider (no LLM)'."""
     audit = AuditLog()
     result = run_backtest(
         pipeline_config(),
@@ -283,7 +283,7 @@ def test_every_agent_view_is_neutral_and_every_tilt_is_zero() -> None:
 
 
 def test_disabling_the_llm_changes_nothing_about_the_result() -> None:
-    # The strongest form of SPEC §2.1(4): with NullProvider the agent pipeline
+    # The strongest form of (4): with NullProvider the agent pipeline
     # and no pipeline at all must produce byte-identical output. If they
     # differed, the LLM would be influencing the portfolio while switched off.
     config = pipeline_config()

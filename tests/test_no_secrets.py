@@ -1,14 +1,8 @@
-"""No credential may reach a tracked file (security).
+"""No credential may reach a tracked file.
 
-This exists because it already happened: real Alpaca keys were typed into
-``.env.example`` instead of ``.env`` and committed. ``.env.example`` is tracked
-and pushed; ``.env`` is gitignored. The two filenames differ by six characters
-and the consequence differs by a published secret, so the difference is checked
-rather than trusted.
-
-The remedy for a leaked key is always rotation, never history rewriting —
-forks, clones, and provider-side caches keep copies that a force-push cannot
-reach.
+``.env`` is gitignored and ``.env.example`` is committed. The two filenames
+differ by six characters and the consequence differs by a published secret, so
+the difference is checked rather than trusted.
 """
 
 from __future__ import annotations
@@ -69,7 +63,8 @@ def test_no_vendor_key_shape_appears_in_tracked_config() -> None:
         *(ROOT / "config").glob("*.yaml"),
         ROOT / ".env.example",
         ROOT / "README.md",
-        ROOT / "CLAUDE.md",
+        ROOT / "DESIGN.md",
+        ROOT / "CONTRIBUTING.md",
         ROOT / "RESULTS.md",
     ]:
         if not path.is_file():
@@ -85,10 +80,9 @@ def test_no_vendor_key_shape_appears_in_tracked_config() -> None:
 def test_credentials_are_stripped_from_error_messages() -> None:
     """A key must not reach an exception, a log line, or CI output.
 
-    Excluding credentials from the cache key was not enough on its own: httpx
-    embeds the *full* request URL in its own exception text, so a failing FRED
-    call printed the API key verbatim. That is how the FRED key ended up on a
-    terminal during the first live backfill.
+    Excluding credentials from the cache key is not sufficient on its own:
+    httpx embeds the full request URL, query string included, in its own
+    exception text, so an upstream failure would otherwise print the key.
     """
     from src.data.cache import redact
 

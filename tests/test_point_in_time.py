@@ -1,4 +1,4 @@
-"""Lookahead bias is impossible by construction (SPEC §4.4).
+"""Lookahead bias is impossible by construction.
 
 The single most important test file in the repo. A backtest that can see a
 filing before it was published does not have a bug in its returns — it has
@@ -38,12 +38,12 @@ def annual_filings() -> PointInTimeSeries[Decimal]:
 
 
 # ---------------------------------------------------------------------------
-# The spec's named case
+# the spec's named case
 # ---------------------------------------------------------------------------
 
 
 def test_a_q4_filing_published_in_february_is_invisible_in_january() -> None:
-    # SPEC §4.4, verbatim. The period ended 2023-12-31, so a system indexing by
+    # , verbatim. The period ended 2023-12-31, so a system indexing by
     # fiscal period end would happily serve it on 2024-01-15 — six weeks before
     # anyone outside the company could have seen it.
     series = annual_filings()
@@ -83,7 +83,7 @@ def test_period_end_is_never_used_for_visibility() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Revisions — the subtle half
+# revisions — the subtle half
 # ---------------------------------------------------------------------------
 
 # Macro series are revised. GDP for Q1 is released in April and revised in May.
@@ -147,7 +147,7 @@ def test_visible_at_is_ordered_by_period() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Construction-time guards
+# construction-time guards
 # ---------------------------------------------------------------------------
 
 

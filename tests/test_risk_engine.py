@@ -1,4 +1,4 @@
-"""Per-constraint behaviour of the risk engine and the IPS loader (SPEC §6.3, §7).
+"""Per-constraint behaviour of the risk engine and the IPS loader.
 
 The property test proves the engine never emits a violating portfolio. These
 tests prove it enforces each rule for the *right reason* and with the right
@@ -64,7 +64,7 @@ def codes(assessment: object) -> set[ReasonCode]:
 
 
 # ---------------------------------------------------------------------------
-# The IPS
+# the IPS
 # ---------------------------------------------------------------------------
 
 
@@ -81,7 +81,7 @@ def test_the_shipped_ips_loads() -> None:
 
 
 def test_the_lower_of_ability_and_willingness_binds() -> None:
-    # SPEC §6.3 asks for this to be asserted and unit-tested by name.
+    # Asks for this to be asserted and unit-tested by name.
     policy = load_policy()
     assert policy.ability is RiskLevel.ABOVE_AVERAGE
     assert policy.willingness is RiskLevel.MODERATE
@@ -105,7 +105,7 @@ def test_ips_path_points_at_the_shipped_file() -> None:
 
 
 def test_the_cash_buffer_binds_tighter_than_the_leverage_ceiling() -> None:
-    # SPEC §7 states NO_LEVERAGE at sum(w) <= 1.0 and MIN_CASH_BUFFER at 5%
+    # NO_LEVERAGE at sum(w) <= 1.0 and MIN_CASH_BUFFER at 5%
     # independently. They are not in conflict: the liquidity floor simply binds
     # first, at 0.95. Naming the combination once keeps the two from being
     # applied inconsistently.
@@ -166,7 +166,7 @@ def _valid_document() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Individual constraints
+# individual constraints
 # ---------------------------------------------------------------------------
 
 
@@ -332,12 +332,12 @@ def test_an_all_cash_book_has_no_safety_first_ratio() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Outputs
+# outputs
 # ---------------------------------------------------------------------------
 
 
 def test_min_trade_notional_is_passed_through_not_enforced() -> None:
-    # SPEC §7: this is a constraint for the executor. The decision layer does
+    # This is a constraint for the executor. The decision layer does
     # not size orders, so it cannot enforce a notional here.
     assessment = evaluate({"AAA": D("0.08")}, context(), POLICY)
     assert assessment.min_trade_notional == POLICY.min_trade_notional
@@ -353,7 +353,7 @@ def test_metrics_are_reported_for_the_returned_portfolio() -> None:
 
 
 def test_every_rejection_carries_a_code() -> None:
-    # SPEC §7: every rejection is persisted and surfaced. An unexplained veto
+    # Every rejection is persisted and surfaced. An unexplained veto
     # is not auditable.
     current = {"AAA": D("0.08")}
     assessment = evaluate({"AAA": D("0.09")}, context(current_weights=current), POLICY)

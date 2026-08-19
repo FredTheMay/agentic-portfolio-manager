@@ -1,25 +1,15 @@
-"""Naive executor against a paper broker (SPEC §3.3, M8).
+"""Naive executor: whole-delta market orders against a paper broker.
 
-Computes integer share counts from target weights and last price, submits
-market orders, and streams the fills back. It ignores participation limits and
-urgency, and :meth:`NaiveExecutor.capabilities` says so — an executor that
-silently drops a constraint teaches the decision layer that the constraint
-works. This is the default live executor and SPEC §3.3 is explicit that it is
-sufficient.
+No slicing, no scheduling, no participation control, and
+:meth:`NaiveExecutor.capabilities` says so — an executor that silently drops a
+constraint teaches the caller that the constraint works.
 
-**Paper only.** :data:`PAPER_BASE_URL` is the paper endpoint and
-:class:`AlpacaPaperBroker` refuses to construct against the live one. SPEC §1
-lists real-money trading as a non-goal, and a URL is a poor place to rely on
-remembering that.
+Paper only. :class:`AlpacaPaperBroker` refuses to construct against the live
+endpoint.
 
-Idempotency
------------
-Every order carries a ``client_order_id`` derived from the mandate id and the
-symbol, so it is deterministic and stable across replays. If a cycle is retried
-after a network timeout — the case where you genuinely do not know whether the
-order landed — the broker recognises the id and refuses the duplicate rather
-than doubling the position. This is why
-:func:`~src.decision.mandate.mandate_id` is a content hash and not a UUID.
+Every order carries a ``client_order_id`` derived from the mandate id and
+symbol, so a cycle retried after an ambiguous network failure presents the same
+id and the broker rejects the duplicate rather than doubling the position.
 """
 
 from __future__ import annotations
@@ -100,7 +90,7 @@ class Broker(Protocol):
 class AlpacaPaperBroker:
     """Alpaca **paper** trading client.
 
-    Refuses to point at the live endpoint. SPEC §1: no live broker endpoint,
+    Refuses to point at the live endpoint. no live broker endpoint,
     ever — enforced here rather than left to a config review.
     """
 
@@ -113,7 +103,7 @@ class AlpacaPaperBroker:
         if LIVE_HOST_FRAGMENT in self.base_url and "paper" not in self.base_url:
             raise BrokerError(
                 f"refusing to trade against {self.base_url}: this system is "
-                "paper-trading only (SPEC §1)"
+                "paper-trading only"
             )
 
     def _headers(self) -> dict[str, str]:
@@ -195,7 +185,7 @@ class NaiveExecutor(ExecutionProvider):
             engine_name=ENGINE_NAME,
             engine_version=ENGINE_VERSION,
             supports_intraday=True,
-            # Stated plainly rather than silently ignored (SPEC §3.2).
+            # Stated plainly rather than silently ignored.
             supports_participation_limits=False,
             supports_streaming_updates=True,
         )

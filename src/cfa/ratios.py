@@ -1,6 +1,6 @@
 """Financial statement ratio analysis.
 
-CFA Level I topic area: Financial Statement Analysis (SPEC §6.4).
+CFA Level I topic area: Financial Statement Analysis.
 
 Pure functions, zero I/O, ``Decimal`` throughout — no float appears anywhere in
 this module, because every quantity here is an exact ratio of reported
@@ -263,8 +263,7 @@ def accruals_ratio(
     earnings reversals and restatements. Negative is good — cash exceeds
     reported profit.
 
-    Used as a deterministic pre-screen alongside the solvency thresholds
-    (SPEC §6.4), never as an LLM judgment call.
+    Used as a deterministic pre-screen alongside the solvency thresholds, never as an LLM judgment call.
 
     CFA Level I: Financial Statement Analysis — earnings quality.
     """

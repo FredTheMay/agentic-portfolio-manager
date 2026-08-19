@@ -1,17 +1,10 @@
-"""Groq provider (SPEC §8).
+"""Groq provider.
 
-⚠️ **Groq** is an inference provider with a free tier. **Grok** is xAI's model
-and is paid. They are different companies and the spec calls this out because
-the names are one letter apart.
+Reserved for short classification calls: the free tier is capped by tokens per
+day, so handing it a full filing is the wrong use.
 
-Fallback, not primary. Groq is very fast but its free tier on the larger models
-is capped nearer 100K tokens/day, so it is reserved for short classification
-calls rather than for handing a model an entire filing. Free-tier quotas change
-often; verify before relying on one.
-
-Uses the OpenAI-compatible chat-completions shape that Groq exposes, with
-``response_format: json_object``. As with Gemini, the result is validated with
-Pydantic regardless of what the API promises.
+The schema goes in the prompt as well as in ``response_format``, because
+json_object mode guarantees valid JSON, not JSON of a particular shape.
 """
 
 from __future__ import annotations
@@ -58,7 +51,7 @@ class GroqProvider(LLMProvider):
 
     def _complete(self, system: str, user: str, schema: type[M]) -> M:
         # The schema goes in the prompt as well as in response_format: the
-        # OpenAI-compatible json_object mode guarantees valid JSON, not JSON
+        # openAI-compatible json_object mode guarantees valid JSON, not JSON
         # of a particular shape.
         instructions = (
             f"{system}\n\nRespond with JSON matching exactly this schema:\n"

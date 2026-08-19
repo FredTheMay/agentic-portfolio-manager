@@ -1,0 +1,101 @@
+// The execution boundary (SPEC §3.2).
+//
+// The decision layer emits target weights and receives fills. It knows nothing
+// about orders, venues, slicing, or brokers. This contract is defined in
+// protobuf — rather than as Python types — so the C++ execution engine can
+// implement the same service later with no renegotiation.
+//
+// All monetary and ratio values are decimal strings. Never float.
+
+syntax = "proto3";
+
+package portfolio.execution.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service ExecutionEngine {
+  rpc Execute(RebalanceMandate) returns (stream ExecutionUpdate);
+  rpc GetCapabilities(CapabilitiesRequest) returns (Capabilities);
+}
+
+message RebalanceMandate {
+  string mandate_id = 1;                          // idempotency key
+  google.protobuf.Timestamp decision_time = 2;    // for shortfall measurement
+  string portfolio_value = 3;
+  repeated TargetWeight targets = 4;
+  ExecutionConstraints constraints = 5;
+  Urgency urgency = 6;
+}
+
+message TargetWeight {
+  string symbol = 1;
+  string target_weight = 2;      // "0.0700"
+  string current_weight = 3;     // "0.0400"
+}
+
+message ExecutionConstraints {
+  string min_trade_notional = 1;         // "100.00"
+  string max_turnover = 2;               // "0.20" of portfolio value
+  string max_participation_rate = 3;     // "0.10" of ADV — ignored by naive executor
+  bool allow_partial = 4;
+  google.protobuf.Timestamp deadline = 5;
+}
+
+enum Urgency {
+  PATIENT = 0;
+  NORMAL = 1;
+  AGGRESSIVE = 2;
+}
+
+message ExecutionUpdate {
+  oneof update {
+    Fill fill = 1;
+    Rejection rejection = 2;
+    ExecutionReport completion = 3;
+  }
+}
+
+message Fill {
+  string symbol = 1;
+  string quantity = 2;
+  string price = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  string venue = 5;
+}
+
+message Rejection {
+  string symbol = 1;
+  string reason_code = 2;
+  string detail = 3;
+}
+
+// Holdings as reported back by the executor after a mandate completes.
+// Quantity is unadjusted shares; market_value and weight are decimal strings.
+message PositionSnapshot {
+  string symbol = 1;
+  string quantity = 2;
+  string market_value = 3;
+  string weight = 4;
+}
+
+message ExecutionReport {
+  string mandate_id = 1;
+  repeated PositionSnapshot final_positions = 2;
+  string realized_turnover = 3;
+  string implementation_shortfall_bps = 4;   // vs decision_time price
+  string total_commission = 5;
+  repeated Rejection rejections = 6;
+}
+
+message CapabilitiesRequest {}
+
+// Lets the decision layer degrade gracefully: an executor that reports
+// supports_participation_limits = false means that constraint is advisory,
+// and the caller must log it rather than assume it was honored.
+message Capabilities {
+  bool supports_intraday = 1;
+  bool supports_participation_limits = 2;
+  bool supports_streaming_updates = 3;
+  string engine_name = 4;
+  string engine_version = 5;
+}

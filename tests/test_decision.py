@@ -1,4 +1,4 @@
-"""Optimizer and mandate emission (SPEC §3, §6.2, M4)."""
+"""Optimizer and mandate emission."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def inputs(risk_free: str = "0.03") -> MarketInputs:
 
 
 # ---------------------------------------------------------------------------
-# Expected-return construction
+# expected-return construction
 # ---------------------------------------------------------------------------
 
 
@@ -125,7 +125,7 @@ def test_market_inputs_validate_their_shape() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Optimization
+# optimization
 # ---------------------------------------------------------------------------
 
 
@@ -180,7 +180,7 @@ def test_optimizer_rejects_a_degenerate_frontier_request() -> None:
 
 
 def test_optimization_is_deterministic() -> None:
-    # SPEC §9: identical inputs, identical output.
+    # Determinism: identical inputs, identical output.
     first = optimize(inputs())
     second = optimize(inputs())
     assert dict(first.weights) == dict(second.weights)
@@ -193,12 +193,12 @@ def test_frontier_is_returned_for_the_dashboard() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Mandate
+# mandate
 # ---------------------------------------------------------------------------
 
 
 def test_mandate_carries_weights_not_orders() -> None:
-    # SPEC §3.1. The wire form has no share count, no order type, no venue.
+    # . The wire form has no share count, no order type, no venue.
     mandate = build_mandate(
         decision_time=NOW,
         portfolio_value=D("100000.00"),
@@ -218,7 +218,7 @@ def test_mandate_carries_weights_not_orders() -> None:
 
 
 def test_every_monetary_value_on_the_wire_is_a_string() -> None:
-    # SPEC §3.2: never float. Binary rounding at the one place two languages
+    # Never float. Binary rounding at the one place two languages
     # must agree exactly is the worst possible place for it.
     mandate = build_mandate(
         decision_time=NOW,
@@ -265,7 +265,7 @@ def test_untouched_symbols_are_not_included() -> None:
 
 
 def test_mandate_id_is_deterministic() -> None:
-    # A UUID would break both idempotency and SPEC §9's identical-run promise.
+    # A UUID would break both idempotency and 's identical-run promise.
     kwargs = dict(
         decision_time=NOW,
         portfolio_value=D("100000.00"),
@@ -371,7 +371,7 @@ def test_deadline_is_serialized_when_present() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Reconciliation (SPEC §3.4)
+# reconciliation
 # ---------------------------------------------------------------------------
 
 

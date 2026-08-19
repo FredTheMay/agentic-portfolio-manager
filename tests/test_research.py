@@ -1,4 +1,4 @@
-"""Per-symbol research service and endpoints (M11)."""
+"""Per-symbol research service and endpoints."""
 
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ def test_every_mapped_ratio_has_a_family() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# endpoints
 # ---------------------------------------------------------------------------
 
 

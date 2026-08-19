@@ -1,4 +1,4 @@
-// Typed client for the read-only dashboard API (SPEC §9).
+// Typed client for the read-only dashboard API.
 //
 // Every monetary and ratio value arrives as a decimal STRING, deliberately.
 // Parsing one into a JS number is lossy — that is the whole reason the API
@@ -145,7 +145,7 @@ export function fixed(value: string | null, places = 2): string {
   return Number.isNaN(parsed) ? value : parsed.toFixed(places);
 }
 
-// --- Research (M11) --------------------------------------------------------
+// --- Research --------------------------------------------------------
 
 export interface SymbolCard {
   symbol: string;

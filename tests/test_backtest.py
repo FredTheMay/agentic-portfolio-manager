@@ -1,4 +1,4 @@
-"""Backtest engine, metrics, and walk-forward validation (SPEC §4.2, §6.2, M6)."""
+"""Backtest engine, metrics, and walk-forward validation."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def config(**overrides: object) -> BacktestConfig:
 
 
 # ===========================================================================
-# Metrics
+# metrics
 # ===========================================================================
 
 
@@ -121,7 +121,7 @@ def test_metrics_require_two_points() -> None:
 
 
 def test_metrics_report_twr_and_mwr_separately() -> None:
-    # SPEC §6.1: TWR is the headline; MWR is reported alongside so the gap can
+    # TWR is the headline; MWR is reported alongside so the gap can
     # be explained rather than hidden.
     equity = [D("100"), D("105"), D("110"), D("115")]
     benchmark = [D("100"), D("102"), D("104"), D("106")]
@@ -137,7 +137,7 @@ def test_metrics_report_twr_and_mwr_separately() -> None:
 
 
 def test_alpha_carries_a_t_statistic() -> None:
-    # SPEC §6.1: a positive alpha without its t-stat is noise nobody ruled out.
+    # A positive alpha without its t-stat is noise nobody ruled out.
     equity = [D(str(100 + i)) for i in range(30)]
     benchmark = [D(str(100 + i * 0.5)) for i in range(30)]
     metrics = compute_metrics(equity, benchmark, D("0.04"))
@@ -175,7 +175,7 @@ def test_summarize_produces_display_strings() -> None:
 
 
 # ===========================================================================
-# The engine
+# the engine
 # ===========================================================================
 
 
@@ -191,7 +191,7 @@ def test_backtest_runs_end_to_end() -> None:
 
 
 def test_backtest_is_deterministic() -> None:
-    # SPEC §11: two identical runs produce identical output hashes.
+    # Determinism: two identical runs produce identical output hashes.
     first = run_backtest(config(), make_source(), SimulatedExecutor(), POLICY, SECTORS, BETAS)
     second = run_backtest(config(), make_source(), SimulatedExecutor(), POLICY, SECTORS, BETAS)
 
@@ -220,7 +220,7 @@ def test_the_event_loop_advances_time_monotonically() -> None:
 
 
 def test_every_executed_cycle_is_reconciled() -> None:
-    # SPEC §3.4: realized weights never equal targets, and the residual is
+    # Realized weights never equal targets, and the residual is
     # mandatory to record.
     result = run_backtest(config(), make_source(), SimulatedExecutor(), POLICY, SECTORS, BETAS)
     for cycle in result.executed:
@@ -237,7 +237,7 @@ def test_risk_approved_weights_respect_the_position_cap() -> None:
 
 
 def test_vetoed_cycles_are_retained_for_the_dashboard() -> None:
-    # SPEC §7: every rejection is persisted and surfaced.
+    # Every rejection is persisted and surfaced.
     result = run_backtest(config(), make_source(), SimulatedExecutor(), POLICY, SECTORS, BETAS)
     for cycle in result.vetoed:
         assert cycle.assessment.violations
@@ -281,7 +281,7 @@ def test_metrics_can_be_computed_from_a_run() -> None:
 
 
 # ===========================================================================
-# Walk-forward and fill-model sensitivity
+# walk-forward and fill-model sensitivity
 # ===========================================================================
 
 
@@ -319,7 +319,7 @@ def test_rolling_windows_reject_non_positive_spans() -> None:
 
 
 def test_results_are_reported_under_both_fill_models() -> None:
-    # SPEC §4.3: reporting only the optimistic number is the amateur tell.
+    # Reporting only the optimistic number is the amateur tell.
     result = run_under_both_fill_models(config(), make_source(), POLICY, SECTORS, BETAS)
 
     assert result.optimistic.fill_model == "InstantFillModel"

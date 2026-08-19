@@ -1,11 +1,10 @@
-"""Clock abstraction (SPEC §4.1).
+"""Clock abstraction: the only module permitted to read the wall clock.
 
-No module outside this one may call ``datetime.now()``, ``datetime.utcnow()``,
-or ``date.today()``. ``tests/test_no_wall_clock.py`` fails the build on any
-violation.
+Every other module takes a :class:`Clock`, which is what lets one code path
+serve both a backtest and a live cycle. ``tests/test_no_wall_clock.py`` fails
+the build on any direct call elsewhere.
 
-Every timestamp in the system is a tz-aware UTC ``datetime`` — an *instant*,
-never a date. A date index is the thing that makes intraday impossible later.
+Every timestamp is a tz-aware UTC instant, never a date.
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ def ensure_utc(ts: datetime) -> datetime:
     """
     if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
         raise ClockError(
-            f"naive datetime {ts!r}: all timestamps must be tz-aware (SPEC §4.2)"
+            f"naive datetime {ts!r}: all timestamps must be tz-aware"
         )
     return ts.astimezone(UTC)
 

@@ -1,21 +1,12 @@
-"""Market data sources behind the ``MarketDataSource`` protocol (SPEC §4.2).
+"""Market data sources behind the ``MarketDataSource`` protocol.
 
-The engine consumes an ordered stream of :class:`~src.data.events.MarketEvent`.
-It never asks where the events came from, which is what lets a live websocket
-feed replace a daily bar file later without touching the engine loop.
+Ordering is a correctness property, not a convenience: the simulation clock
+only moves forwards, so an out-of-order event would either crash it or let the
+system act on data from the future.
 
-**Ordering is a correctness property, not a convenience.** Events must arrive
-in non-decreasing timestamp order: the simulation clock only moves forwards
-(:class:`~src.time.clock.SimulationClock`), and an out-of-order event would
-either crash the clock or, worse, let the system act on data from the future.
-:class:`InMemoryEventSource` merges across symbols and validates the ordering
-rather than trusting its input.
-
-**Adjusted versus unadjusted prices** (SPEC §4.4). Bars carry both. ``close``
-is the unadjusted print, used for share-count arithmetic; ``adj_close`` is
-split- and dividend-adjusted, used for return calculation. Corporate actions
-are additionally emitted as their own events so the portfolio can apply them
-explicitly instead of inferring them from a jump in an adjusted series.
+Bars carry both prices. ``close`` is unadjusted, for share arithmetic;
+``adj_close`` is split- and dividend-adjusted, for returns. They are separate
+fields so the two cannot be mixed by accident.
 """
 
 from __future__ import annotations
@@ -82,7 +73,7 @@ def live_alpaca_fetcher(
     """A caching fetcher authenticated for Alpaca market data.
 
     Recording through the cache means the credentials are needed once; every
-    later run replays offline (SPEC §9).
+    later run replays offline.
     """
     from src.data.cache import CachingFetcher, HttpxFetcher, ResponseCache
 
@@ -103,7 +94,7 @@ def _parse_amount(value: Any, field: str) -> Decimal:
         except InvalidOperation as exc:
             raise SourceError(f"{field} is not numeric: {value!r}") from exc
     if isinstance(value, float):
-        # cache.loads decodes JSON floats as Decimal, so this is a fallback for
+        # Cache.loads decodes JSON floats as Decimal, so this is a fallback for
         # hand-built payloads. Convert through repr, never through arithmetic.
         return Decimal(repr(value))
     raise SourceError(f"{field} is not numeric: {value!r}")

@@ -1,22 +1,10 @@
-"""Response caching, failover, and the NEUTRAL fallback (SPEC §8, §2.1).
+"""Response caching, provider failover, and the NEUTRAL fallback.
 
-Three wrappers, each an :class:`~src.llm.base.LLMProvider`, composable in any
-order:
-
-:class:`CachingProvider`
-    Keyed on ``hash(provider + system + user + schema)``, so re-runs are free
-    and a backtest replays byte-identically (SPEC §9). Free tiers are measured
-    in requests per day; a cache is the difference between iterating and
-    waiting until tomorrow.
-
-:class:`FailoverProvider`
-    Tries providers in order. Gemini's free tier is 1,500 requests/day; Groq's
-    70B model is capped nearer 100K tokens/day. Neither is reliable alone.
-
-:class:`ResilientProvider`
-    Retries schema-invalid output, then **falls back to NEUTRAL** (SPEC
-    §2.1(3)). The pipeline must not halt because a model returned malformed
-    JSON — recording "no view" and continuing is strictly better than stopping.
+Three composable wrappers. Caching keys on provider, prompt and schema shape,
+so re-runs are free and a backtest replays identically — free tiers are
+measured in requests per day. Failover tries providers in order. Resilient
+retries schema-invalid output, then answers NEUTRAL rather than raising,
+because a malformed response should not take down a rebalance cycle.
 """
 
 from __future__ import annotations
@@ -137,7 +125,7 @@ class FailoverProvider(LLMProvider):
 class ResilientProvider(LLMProvider):
     """Retries invalid output, then answers NEUTRAL rather than failing.
 
-    SPEC §2.1(3). The fallback is deliberate: an agent that cannot parse a
+    (3). The fallback is deliberate: an agent that cannot parse a
     response has no view, and "no view" is a legitimate, auditable outcome that
     maps to a zero tilt. Raising instead would let one malformed response take
     down a rebalance cycle.

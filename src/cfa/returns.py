@@ -1,6 +1,6 @@
 """Return and dispersion measures.
 
-CFA Level I topic area: Quantitative Methods (SPEC §6.1).
+CFA Level I topic area: Quantitative Methods.
 
 Pure functions, zero I/O. ``Decimal`` at every public boundary; the regression
 and IRR routines solve in float64 and convert back through
@@ -34,7 +34,7 @@ ONE = Decimal(1)
 DAYS_PER_YEAR = Decimal(365)
 #: Year fractions are measured in seconds, not whole days. Truncating to days
 #: would silently discard the time of an intraday cash flow, which is exactly
-#: the assumption SPEC §4.2 exists to avoid.
+#: the assumption exists to avoid.
 SECONDS_PER_YEAR = DAYS_PER_YEAR * Decimal(86_400)
 
 #: Widening brackets for the IRR solve. A short holding period annualizes to an
@@ -338,6 +338,6 @@ def estimate_beta(
     intercept, without which "the strategy has positive alpha" is an unfalsifiable
     claim.
 
-    CFA Level I: Portfolio Management — beta estimation (SPEC §6.1, §6.2).
+    CFA Level I: Portfolio Management — beta estimation.
     """
     return ols_regression(asset_excess_returns, market_excess_returns)

@@ -1,22 +1,10 @@
-"""Pluggable fill models for the backtest executor (SPEC §4.3).
+"""Fill models for the backtest executor.
 
-The gap between these two models **is** the execution-cost sensitivity of the
-strategy, and SPEC §4.3 requires reporting results under both. Quoting only the
-optimistic number is the classic amateur tell: it reports what the strategy
-would have earned in a market where trading is free.
-
-``InstantFillModel``
-    Fills at the close, in full, no commission. Optimistic, and labelled as
-    such — it is a lower bound on cost, not an estimate of it.
-
-``SpreadCrossFillModel``
-    Fills at the far side of the quoted spread plus a fixed commission. Cheap
-    to compute and materially more honest: a market order pays the spread, and
-    on a small-cap name that is a larger cost than the commission ever was.
-
-``QueuePositionFillModel``
-    Later, backed by the C++ simulator. The interface is already here so it
-    slots in without touching the engine.
+The gap between the two is the strategy's execution-cost sensitivity, and both
+are reported. ``InstantFillModel`` fills at the close in full for free —
+optimistic by construction, a lower bound on cost rather than an estimate of
+it. ``SpreadCrossFillModel`` crosses the spread and charges commission, which
+is what a market order actually does.
 """
 
 from __future__ import annotations
@@ -120,7 +108,7 @@ class SpreadCrossFillModel:
 
 @dataclass(frozen=True, slots=True)
 class QueuePositionFillModel:
-    """Placeholder for the C++ limit-order-book simulator (SPEC §4.3).
+    """Placeholder for the C++ limit-order-book simulator.
 
     Deliberately not implemented here. Queue position depends on the order book
     and on the behaviour of everyone else in it, which is the whole reason the

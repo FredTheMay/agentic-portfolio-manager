@@ -1,4 +1,4 @@
-"""Execution boundary: sizing, fill models, shortfall, reconciliation (SPEC §3, M5)."""
+"""Execution boundary: sizing, fill models, shortfall, reconciliation."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def mandate(
 
 
 # ---------------------------------------------------------------------------
-# Sizing
+# sizing
 # ---------------------------------------------------------------------------
 
 
@@ -114,7 +114,7 @@ def test_no_order_when_already_at_target() -> None:
 
 
 def test_min_trade_notional_is_enforced_below_the_boundary() -> None:
-    # SPEC §7 passes this down as a constraint; the decision layer has no
+    # Passes this down as a constraint; the decision layer has no
     # notion of a trade, so it cannot enforce it.
     # 0.05% of 100,000 = 50.00, which at 25.00 is 2 shares worth 50 — a real
     # trade, but below the 100.00 minimum.
@@ -144,7 +144,7 @@ def test_a_missing_price_is_rejected_not_guessed() -> None:
 
 
 def test_sizing_is_deterministic_and_ordered() -> None:
-    # SPEC §9: identical runs produce an identical trade log.
+    # Identical runs produce an identical trade log.
     account = Account(cash=D("100000.00"))
     request = mandate({"CCC": D("0.10"), "AAA": D("0.10"), "BBB": D("0.10")})
     first, _ = size_orders(request, account, market())
@@ -165,7 +165,7 @@ def test_orders_reject_a_non_positive_quantity() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Fill models
+# fill models
 # ---------------------------------------------------------------------------
 
 
@@ -194,7 +194,7 @@ def test_spread_model_makes_a_seller_receive_less() -> None:
 
 
 def test_the_two_fill_models_disagree_and_that_gap_is_the_point() -> None:
-    # SPEC §4.3: the gap between them IS the execution-cost sensitivity.
+    # The gap between them IS the execution-cost sensitivity.
     order = Order("AAA", Side.BUY, 1000, D("100.00"))
     optimistic = InstantFillModel().fill(order, D("100.00"), NOW)[0]
     honest = SpreadCrossFillModel().fill(order, D("100.00"), NOW)[0]
@@ -210,13 +210,13 @@ def test_spread_model_refuses_to_produce_a_non_positive_price() -> None:
 
 
 def test_queue_model_is_deliberately_not_implemented() -> None:
-    # SPEC §4.3: backed by the C++ simulator, a separate project.
+    # Backed by the C++ simulator, a separate project.
     with pytest.raises(NotImplementedError, match="C\\+\\+"):
         QueuePositionFillModel().fill(Order("AAA", Side.BUY, 1, D("1")), D("1"), NOW)
 
 
 # ---------------------------------------------------------------------------
-# Implementation shortfall
+# implementation shortfall
 # ---------------------------------------------------------------------------
 
 
@@ -251,12 +251,12 @@ def test_shortfall_of_no_fills_is_zero() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The simulated executor
+# the simulated executor
 # ---------------------------------------------------------------------------
 
 
 def test_executor_reports_what_it_cannot_honor() -> None:
-    # SPEC §3.2: an executor that silently drops a constraint teaches the
+    # An executor that silently drops a constraint teaches the
     # decision layer that the constraint works.
     capabilities = SimulatedExecutor().capabilities()
     assert capabilities.supports_participation_limits is False
@@ -284,7 +284,7 @@ def test_execution_moves_the_book_to_the_target() -> None:
 
 
 def test_realized_weights_never_exactly_equal_targets_under_costs() -> None:
-    # SPEC §3.4: this is why post-trade reconciliation is mandatory.
+    # This is why post-trade reconciliation is mandatory.
     account = Account(cash=D("100000.00"))
     request = mandate({"AAA": D("0.10")})
     report = SimulatedExecutor(fill_model=SpreadCrossFillModel()).execute_to_completion(
@@ -337,7 +337,7 @@ def test_report_carries_the_mandate_id_for_idempotency() -> None:
 
 
 def test_execution_is_deterministic() -> None:
-    # SPEC §9: two identical runs produce identical output.
+    # Determinism: two identical runs produce identical output.
     request = mandate({"AAA": D("0.10"), "BBB": D("0.05")})
     a = SimulatedExecutor().execute_to_completion(request, Account(cash=D("100000.00")), market())
     b = SimulatedExecutor().execute_to_completion(request, Account(cash=D("100000.00")), market())
@@ -355,7 +355,7 @@ def test_realized_turnover_is_reported() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Executor selection (SPEC §2.2: exactly one config value)
+# executor selection
 # ---------------------------------------------------------------------------
 
 
@@ -372,7 +372,7 @@ def test_unknown_executor_is_reported() -> None:
 
 
 def test_grpc_executor_is_a_stub() -> None:
-    # SPEC §12: the C++ engine is a separate project. A stub that raises is the
+    # The C++ engine is a separate project. A stub that raises is the
     # correct implementation, and its existence proves the seam works.
     executor = get_executor("grpc")
     assert isinstance(executor, ExecutionProvider)
@@ -388,7 +388,7 @@ def test_executor_selection_reads_the_environment(monkeypatch: pytest.MonkeyPatc
 
 
 # ---------------------------------------------------------------------------
-# Naive executor against a paper broker (SPEC §3.3, M8)
+# naive executor against a paper broker
 # ---------------------------------------------------------------------------
 
 
@@ -503,7 +503,7 @@ def test_naive_executor_writes_to_the_audit_log() -> None:
 
 
 def test_the_paper_broker_refuses_the_live_endpoint() -> None:
-    # SPEC §1: no live broker endpoint, ever. Enforced in code rather than
+    # No live broker endpoint, ever. Enforced in code rather than
     # left to a config review.
     from src.execution.naive import AlpacaPaperBroker, BrokerError
 

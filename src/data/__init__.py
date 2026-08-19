@@ -1,1 +1,2 @@
-"""Market data: event types, sources, point-in-time accessors (SPEC §4.2, §4.4)."""
+"""Market data: event types, sources, and point-in-time accessors.
+"""

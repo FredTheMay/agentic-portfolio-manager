@@ -1,13 +1,12 @@
-"""Event-driven market data model (SPEC §4.2).
+"""Event-driven market data model.
 
-The engine consumes a stream of timestamped events, never ``for day in
-trading_days:``. Timestamps are instants, so a future ``StreamingQuoteSource``
-over a websocket implements the same :class:`MarketDataSource` protocol and the
-engine loop is unchanged.
+The engine consumes a stream of timestamped events, so a future streaming
+source implements the same protocol and the engine loop is unchanged.
+Timestamps are instants, never dates.
 
-Prices are ``Decimal``. Floats are rejected at construction: binary floats
-cannot represent decimal cash amounts exactly, and silent accumulation of that
-error through a backtest is the kind of bug that never announces itself.
+Prices are ``Decimal`` and floats are rejected at construction: binary floats
+cannot represent decimal cash exactly, and the error accumulates silently
+across a backtest.
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ def _require_decimal(name: str, value: object) -> Decimal:
     if isinstance(value, float):
         raise MarketDataError(
             f"{name} must be Decimal, got float {value!r} — "
-            "money and prices are never float (SPEC §9)"
+            "money and prices are never float"
         )
     if not isinstance(value, Decimal):
         raise MarketDataError(f"{name} must be Decimal, got {type(value).__name__}")
@@ -70,7 +69,7 @@ class BarPayload:
     ``close`` is the **unadjusted** print, used for share-count arithmetic.
     ``adj_close`` is split- and dividend-adjusted, used for return
     calculation. They are separate fields precisely so the two can never be
-    mixed by accident (SPEC §4.4).
+    mixed by accident.
     """
 
     open: Decimal
@@ -124,7 +123,7 @@ class TradePayload:
 
 @dataclass(frozen=True, slots=True)
 class ActionPayload:
-    """A corporate action (SPEC §4.4).
+    """A corporate action.
 
     Splits and dividends are handled explicitly rather than being folded
     invisibly into an adjusted price series, because share-count arithmetic
@@ -175,7 +174,7 @@ class MarketEvent:
     payload: Payload
 
     def __post_init__(self) -> None:
-        # frozen dataclass: normalize through object.__setattr__.
+        # Frozen dataclass: normalize through object.__setattr__.
         object.__setattr__(self, "timestamp", ensure_utc(self.timestamp))
         if not self.symbol:
             raise MarketDataError("symbol must be non-empty")
@@ -197,7 +196,7 @@ class MarketDataSource(Protocol):
     backtest clock only moves forwards, and out-of-order events would let the
     system read data it could not have had.
 
-    v1 ships ``DailyBarSource`` (M2). A ``StreamingQuoteSource`` implements the
+    v1 ships ``DailyBarSource``. A ``StreamingQuoteSource`` implements the
     same protocol over a websocket with no change to the engine.
     """
 

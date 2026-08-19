@@ -1,14 +1,12 @@
-"""Narrator (SPEC §5.5). A formatter, not a decision maker.
+"""Narrator: formats final decisions for display. A formatter, not a decision maker.
 
-Receives decisions and metrics that are already final and phrases them for the
-dashboard. It cannot change anything, and :func:`verify_numbers_echoed` checks
-that it did not: any figure appearing in the narrative that was not in the
-input is flagged as ``NARRATOR_ALTERED_FIGURE``.
+It receives decisions that are already final and cannot change them.
+:func:`verify_numbers_echoed` flags any figure in the narrative that was not in
+its input, since a number the narrator produced is either a recomputation or an
+invention.
 
-CFA Standard V(B), communication with clients, is enforced structurally rather
-than by instruction: the schema has separate ``facts`` and ``opinions`` lists,
-so a reader can tell which is which without trusting the model to have kept
-them apart in prose.
+``facts`` and ``opinions`` are separate schema fields, so a reader can tell
+which is which without trusting the model to have kept them apart in prose.
 """
 
 from __future__ import annotations

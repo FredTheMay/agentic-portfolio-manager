@@ -1,10 +1,9 @@
-"""Agent response schemas (SPEC §5).
+"""Agent response schemas.
 
-Every one of these is validated by
-:func:`~src.llm.schema_guard.validate_llm_schema` before a request is made, so
-none of them may contain a numeric field. The only integer permitted anywhere
-here is :data:`~src.llm.base.Conviction`, a 1-5 ordinal that becomes a number
-by table lookup in ``config/view_mapping.yaml`` and never by arithmetic.
+Each is validated by :func:`~src.llm.schema_guard.validate_llm_schema` before a
+request is made, so none may contain a numeric field. The only integer
+permitted is :data:`~src.llm.base.Conviction`, a 1-5 ordinal that becomes a
+number by table lookup rather than by arithmetic.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ class Citation(BaseModel):
 
     CFA Standard V(A), reasonable basis: a recommendation without support is
     not a recommendation. :class:`ResearchView` instances lacking one are
-    discarded to NEUTRAL (SPEC §5.1).
+    discarded to NEUTRAL.
     """
 
     url: str = Field(description="Direct link to the source")
@@ -30,7 +29,7 @@ class Citation(BaseModel):
 
 
 class ResearchView(BaseModel):
-    """Output of the Research Agent (SPEC §5.1)."""
+    """Output of the Research Agent."""
 
     ticker: str
     stance: Stance
@@ -40,7 +39,7 @@ class ResearchView(BaseModel):
 
 
 class FundamentalView(BaseModel):
-    """Output of the Fundamental Analyst (SPEC §5.2).
+    """Output of the Fundamental Analyst.
 
     The model receives a finished ratio table computed in Python and returns an
     interpretation. ``figures_cited`` exists so the ``HALLUCINATED_FIGURE``
@@ -58,8 +57,7 @@ class FundamentalView(BaseModel):
 class CyclePhase(str, enum.Enum):
     """Business-cycle phase.
 
-    Classified by **rule** in :mod:`src.agents.macro`, never by the model
-    (SPEC §5.3). It appears in a schema only so the narrative can be told which
+    Classified by **rule** in :mod:`src.agents.macro`, never by the model. It appears in a schema only so the narrative can be told which
     phase the rule chose.
     """
 
@@ -71,7 +69,7 @@ class CyclePhase(str, enum.Enum):
 
 
 class MacroNarrative(BaseModel):
-    """Output of the Macro/Regime Agent (SPEC §5.3).
+    """Output of the Macro/Regime Agent.
 
     Narrative only. The phase is decided by rule and passed *in*; the model
     writes prose about it and expresses a categorical stance.
@@ -84,7 +82,7 @@ class MacroNarrative(BaseModel):
 
 
 class DecisionNarrative(BaseModel):
-    """Output of the Narrator (SPEC §5.5).
+    """Output of the Narrator.
 
     A formatter, not a decision maker. It receives decisions and metrics that
     are already final and must echo every number verbatim.

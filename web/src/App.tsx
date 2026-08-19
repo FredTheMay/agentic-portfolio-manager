@@ -80,7 +80,7 @@ export default function App() {
 
   return (
     <>
-      {/* SPEC §1: persistent, not dismissible, above everything else. */}
+      {/* persistent, not dismissible, above everything else. */}
       <div className="banner" role="note">{data.status.disclaimer}</div>
 
       {/* Ticker tape: live-looking, but every figure is from the recorded run. */}
@@ -174,7 +174,7 @@ export default function App() {
 
         {view === "risk" && (
           <>
-            {/* Vetoes first: SPEC §7 names it the screen to demo first. */}
+            {/* Vetoes first: it is the screen to demo first. */}
             <VetoPanel data={data.vetoes} />
             <div className="two-up">
               <FrontierPanel data={data.frontier} />
@@ -188,7 +188,7 @@ export default function App() {
 
         <footer className="footer">
           <p><strong>{data.status.disclaimer}</strong></p>
-          {/* SPEC §4.4 requires the survivorship limitation in the footer. */}
+          {/* the survivorship limitation in the footer. */}
           <p>{data.status.survivorship_notice}</p>
         </footer>
       </main>

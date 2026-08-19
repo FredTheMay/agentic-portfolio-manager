@@ -1,4 +1,4 @@
-"""The execution boundary contract compiles and stays decimal-safe (SPEC §3.2).
+"""The execution boundary contract compiles and stays decimal-safe.
 
 The contract is defined in protobuf now, while the only executor is in-process
 Python, so the C++ engine can implement the same service later with no
@@ -42,8 +42,8 @@ def test_proto_compiles(tmp_path: Path) -> None:
 
 
 def test_no_floating_point_fields_in_the_contract() -> None:
-    # SPEC §3.2: "All monetary and ratio values are decimal strings. Never float."
-    # A double on the wire would reintroduce binary rounding at the one place
+    # "All monetary and ratio values are decimal strings. Never float."
+    # a double on the wire would reintroduce binary rounding at the one place
     # two languages have to agree exactly.
     source = PROTO.read_text()
     offenders = [

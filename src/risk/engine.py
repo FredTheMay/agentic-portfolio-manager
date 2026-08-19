@@ -1,30 +1,16 @@
-"""The risk and IPS engine (SPEC §7).
+"""The risk and IPS engine: approve, repair, or veto a set of target weights.
 
-A pure function. No I/O, no LLM, no randomness, no clock — it takes a proposal,
-a context, and a policy, and returns a verdict. That is what makes it testable
-at ten thousand cases and what makes CFA Standard III(A) enforceable: there is
-no path through this module that consults anything mutable.
+A pure function — no I/O, no LLM, no randomness, no clock — which is what makes
+it testable at ten thousand cases and what makes the policy binding at runtime.
 
-Architecture: **repair, then verify.**
+Repairs run in a fixed order, then *every* constraint is re-checked from
+scratch on the result and anything still failing is rejected. That final gate
+is load-bearing: repairs interact (capping a sector changes beta; blending for
+turnover reinterpolates everything), and verifying the output is more reliable
+than reasoning about whether the repair order is exhaustive.
 
-The engine first applies deterministic repairs in a fixed order (drop
-uninvestable names, clamp shorts, cap positions, cap sectors, scale for
-leverage/cash/beta/volatility, blend for turnover). It then re-checks *every*
-constraint from scratch on the result. If anything still fails, the answer is
-``REJECTED``.
-
-That final verification is the load-bearing part. Repairs are heuristics and
-they interact — capping a sector changes the beta, blending for turnover
-reinterpolates everything. Rather than reasoning about whether the repair order
-is exhaustive, the engine simply refuses to emit anything that does not pass an
-independent check. The property in ``tests/test_risk_properties.py`` holds
-because of this gate, not because the repairs are clever.
-
-Ordering note: uniform scaling toward cash is safe because every constraint it
-targets is monotone in the scale factor. Multiplying all weights by ``k <= 1``
-reduces gross exposure, every position weight, every sector total, portfolio
-beta (linear in weights) and portfolio volatility (homogeneous of degree one),
-while raising cash. So the scaling step can never undo an earlier repair.
+Uniform scaling toward cash is safe because every constraint it targets is
+monotone in the scale factor, so it can never undo an earlier repair.
 """
 
 from __future__ import annotations
@@ -91,7 +77,7 @@ class RiskAssessment:
     violations: tuple[Violation, ...]
     repairs: tuple[Repair, ...]
     metrics: RiskMetrics
-    #: Carried into the RebalanceMandate (SPEC §3.2). Not enforced here: the
+    #: Carried into the RebalanceMandate. Not enforced here: the
     #: decision layer does not size orders.
     min_trade_notional: Decimal
 
@@ -101,12 +87,12 @@ class RiskAssessment:
 
 
 # ---------------------------------------------------------------------------
-# Measurement
+# measurement
 # ---------------------------------------------------------------------------
 
 
 def portfolio_beta(weights: Mapping[str, Decimal], betas: Mapping[str, Decimal]) -> Decimal:
-    """``beta_p = sum(wi beta_i)`` (SPEC §6.2)."""
+    """``beta_p = sum(wi beta_i)``."""
     return sum((w * betas.get(s, ZERO) for s, w in weights.items()), ZERO)
 
 
@@ -178,7 +164,7 @@ def safety_first_ratio(
 
 
 # ---------------------------------------------------------------------------
-# Verification — the gate every result must pass
+# verification — the gate every result must pass
 # ---------------------------------------------------------------------------
 
 
@@ -187,7 +173,7 @@ def verify(
     context: RiskContext,
     policy: InvestmentPolicy,
 ) -> list[Violation]:
-    """Check every SPEC §7 constraint against a finished portfolio.
+    """Check every constraint against a finished portfolio.
 
     Independent of how the portfolio was produced. Nothing leaves this module
     without passing.
@@ -310,7 +296,7 @@ def _is_blocked(symbol: str, context: RiskContext) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Repairs
+# repairs
 # ---------------------------------------------------------------------------
 
 
@@ -341,7 +327,7 @@ def evaluate(
     """Approve, repair, or reject a proposed set of target weights.
 
     Returns weights that are guaranteed to satisfy every constraint in
-    SPEC §7, or ``REJECTED`` with the codes that could not be satisfied.
+    , or ``REJECTED`` with the codes that could not be satisfied.
     """
     repairs: list[Repair] = []
     weights: dict[str, Decimal] = {s: w for s, w in proposed.items() if w != ZERO}
@@ -415,7 +401,7 @@ def evaluate(
             )
 
     # --- Uniform scale toward cash ---------------------------------------
-    # Every constraint below is monotone in the scale factor, so one pass at
+    # every constraint below is monotone in the scale factor, so one pass at
     # the tightest of them satisfies all of them at once.
     gross = sum(weights.values(), ZERO)
     if gross > ZERO:
@@ -458,7 +444,7 @@ def evaluate(
                 repairs.append(Repair(code, f"scaled all weights by {scale}"))
 
     # --- Rebalance corridor ----------------------------------------------
-    # Evaluated on the repaired target: whether a trade is worth doing depends
+    # evaluated on the repaired target: whether a trade is worth doing depends
     # on the portfolio actually being proposed, not the raw request.
     drift = max_drift(context.current_weights, weights)
     if context.current_weights and drift <= policy.corridor_absolute:
@@ -546,7 +532,7 @@ def _metrics(
 
 
 def rejection_summary(assessments: Sequence[RiskAssessment]) -> dict[ReasonCode, int]:
-    """Count vetoes by reason code, for the dashboard panel (SPEC §7)."""
+    """Count vetoes by reason code, for the dashboard panel."""
     counts: dict[ReasonCode, int] = {}
     for assessment in assessments:
         for violation in assessment.violations:

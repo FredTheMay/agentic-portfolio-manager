@@ -1,6 +1,6 @@
 """Bond pricing, interest-rate risk, and money-market yield conventions.
 
-CFA Level I topic area: Fixed Income (SPEC §6.6).
+CFA Level I topic area: Fixed Income.
 
 Pure functions, zero I/O. ``Decimal`` at every public boundary; only
 :func:`yield_to_maturity` leaves it, because inverting the price equation
@@ -11,8 +11,7 @@ the natural source for a risk-free rate — is quoted on a *bank discount basis*
 That convention divides the discount by face value rather than by the price
 actually paid, and annualizes on a 360-day year. Both choices bias it low.
 Feeding it directly into Sharpe, Treynor, CAPM, or the CAL overstates every
-excess return, which is why SPEC §6.2 requires
-:func:`discount_to_bond_equivalent_yield` first.
+excess return, which is why :func:`discount_to_bond_equivalent_yield` first.
 """
 
 from __future__ import annotations
@@ -319,7 +318,7 @@ def discount_to_bond_equivalent_yield(
         price = F(1 - BDY x t/360)
         BEY   = (F - price)/price x 365/t
 
-    SPEC §6.2 [CORRECTED] requires this before ``DGS3MO`` is used as the
+    this before ``DGS3MO`` is used as the
     risk-free rate anywhere. BEY is always above the discount yield it came
     from, so skipping the conversion understates Rf and inflates every
     risk-adjusted metric in the system.

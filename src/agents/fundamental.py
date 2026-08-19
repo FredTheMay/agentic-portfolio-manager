@@ -1,16 +1,11 @@
-"""Fundamental Analyst (SPEC §5.2).
+"""Fundamental analyst: interprets a ratio table computed in Python.
 
-Python computes every ratio in SPEC §6.4 from point-in-time EDGAR data. The
-model receives the **finished table** and returns a categorical interpretation.
-It is never asked to compute anything, and its arithmetic is never trusted,
-because it is not doing any.
+The model receives finished ratios and returns a categorical view. Its
+arithmetic is never trusted because it is not doing any.
 
-``HALLUCINATED_FIGURE``: if the model's rationale contains a number that does
-not appear in the table it was handed, the event is logged against CFA Standard
-I(C), misrepresentation. The check is deliberately crude — it looks for numeric
-tokens and asks whether each appears in the input — because the failure it
-catches is crude: a model inventing a plausible-sounding figure it was never
-given.
+``hallucinated_figures`` flags numeric tokens in the rationale that are absent
+from the input table. The check is deliberately crude because the failure it
+catches is crude: a model inventing a plausible figure it was never given.
 """
 
 from __future__ import annotations
