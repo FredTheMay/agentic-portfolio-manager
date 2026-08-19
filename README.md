@@ -11,7 +11,7 @@ deterministic risk engine. Python, FastAPI, React, AWS.
 
 | | |
 |---|---|
-| Tests | **597** passing |
+| Tests | **617** passing |
 | Coverage | **96%** on `src/cfa/` and `src/risk/` (SPEC §11 requires 90%) |
 | Type checking | `mypy --strict`, clean across 79 files |
 | Architecture | 3 import-linter contracts, enforced in CI |
@@ -75,9 +75,14 @@ make install      # venv + dependencies
 make proto        # generate protobuf stubs (gitignored — regenerate, never commit)
 make check        # tests + mypy + import contracts + coverage gate
 make results      # regenerate RESULTS.md's numbers
+make check-keys   # verify API credentials (all optional)
+make backfill     # record real market data — the only step that fetches
+make results      # regenerate RESULTS.md
 make serve        # read-only dashboard API on :8000
-cd web && npm install && npm run dev   # the dashboard
+cd web && npm install && npm run dev   # the dashboard on :5173
 ```
+
+Deploy to a single EC2 instance with `deploy/` — see [deploy/README.md](deploy/README.md).
 
 **No API keys are required for any of this.** The LLM defaults to `NullProvider`, the data
 layer replays from cache or synthetic data, and the executor defaults to the simulator. Keys

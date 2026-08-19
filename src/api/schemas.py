@@ -178,3 +178,90 @@ def format_weights(weights: dict[str, Decimal]) -> dict[str, str]:
 
 def format_series(values: Sequence[Decimal]) -> list[str]:
     return [money(value) for value in values]
+
+
+# ---------------------------------------------------------------------------
+# Research (M11)
+# ---------------------------------------------------------------------------
+
+
+class SymbolCard(BaseModel):
+    """One instrument's headline figures, for the screener grid."""
+
+    symbol: str
+    sector: str
+    category: str
+    beta: str | None
+    current_weight: str
+    latest_price: str | None
+    change_1d: str | None
+    change_ytd: str | None
+    volatility: str | None
+    has_fundamentals: bool
+
+
+class ScreenResponse(BaseModel):
+    as_of: str
+    data_source: str
+    count: int
+    symbols: list[SymbolCard]
+    sectors: list[str]
+    disclaimer: str = DISCLAIMER
+
+
+class PricePointResponse(BaseModel):
+    t: str
+    close: str
+    adjusted: str
+
+
+class RatioRow(BaseModel):
+    name: str
+    value: str
+    #: Which CFA §6.4 family the ratio belongs to, for grouping in the UI.
+    family: str
+
+
+class ValuationResponse(BaseModel):
+    method: str
+    value: str | None
+    reason: str
+
+
+class ResearchResponse(BaseModel):
+    """Everything the system knows about one instrument."""
+
+    profile: SymbolCard
+    as_of: str
+    prices: list[PricePointResponse]
+    ratios: list[RatioRow]
+    valuation: ValuationResponse | None
+    enterprise_value: str | None
+    capm_required_return: str | None
+    fundamentals_period: str | None
+    veto_codes: list[str]
+    #: Caveats about *this* instrument's data — an unmapped tag, a model that
+    #: does not converge. Surfaced rather than silently degrading the numbers.
+    notes: list[str]
+    disclaimer: str = DISCLAIMER
+
+
+#: Ratio name -> CFA §6.4 family, for grouping. Anything unlisted is "Other".
+RATIO_FAMILIES: dict[str, str] = {
+    "current_ratio": "Liquidity",
+    "quick_ratio": "Liquidity",
+    "debt_to_equity": "Solvency",
+    "interest_coverage": "Solvency",
+    "gross_margin": "Profitability",
+    "operating_margin": "Profitability",
+    "net_margin": "Profitability",
+    "return_on_assets": "Profitability",
+    "return_on_equity": "Profitability",
+    "inventory_turnover": "Activity",
+    "receivables_turnover": "Activity",
+    "total_asset_turnover": "Activity",
+    "accruals_ratio": "Earnings quality",
+    "dupont_net_margin": "DuPont",
+    "dupont_asset_turnover": "DuPont",
+    "dupont_equity_multiplier": "DuPont",
+}

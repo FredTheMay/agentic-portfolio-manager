@@ -1,4 +1,4 @@
-.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results check-keys backfill serve web clean
+.PHONY: install proto test coverage coverage-gate typecheck lint-imports check results check-keys backfill serve web deploy clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -50,6 +50,10 @@ serve:
 ## Build the React dashboard (requires npm).
 web:
 	cd web && npm install && npm run build
+
+## Deploy to EC2:  make deploy HOST=ubuntu@1.2.3.4 KEY=~/.ssh/key.pem
+deploy:
+	HOST=$(HOST) KEY=$(KEY) deploy/deploy.sh
 
 ## Regenerate the numbers in RESULTS.md (SPEC §11).
 results:

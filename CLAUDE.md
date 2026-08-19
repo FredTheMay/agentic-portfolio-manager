@@ -32,6 +32,7 @@ make coverage       # coverage report
 make results        # regenerate RESULTS.md's numbers
 make check-keys     # verify each API credential against its live service
 make backfill       # record real data into data/cache — the ONLY script that fetches
+make deploy         # ship to EC2: make deploy HOST=ubuntu@1.2.3.4 KEY=~/.ssh/k.pem
 make proto          # regenerate protobuf stubs (gitignored — never commit them)
 make serve          # read-only dashboard API on :8000
 make web            # build the React dashboard
@@ -175,11 +176,12 @@ src/agents/     LLM agents, aggregator, pipeline
 src/llm/        Provider ABC, null/gemini/groq, cache, schema guard
 src/backtest/   Event loop, walk-forward, metrics
 src/audit/      Audit log tagged with CFA Standards
-src/api/        Read-only FastAPI + Lambda handlers + state store
+src/api/        Read-only FastAPI + research service + Lambda handlers + state store
 config/         ips.yaml, universe.yaml, view_mapping.yaml
 proto/          execution.proto — the boundary contract
 infra/          AWS CDK (dependencies deliberately separate)
-web/            React + TypeScript dashboard
+web/            React + TypeScript dashboard (5 views, inline-SVG charts)
+deploy/         EC2: nginx + systemd + provisioning and deploy scripts
 ```
 
 Three modules sit outside SPEC §9's layout, deliberately: `src/risk/ips.py` (so the engine
@@ -204,7 +206,7 @@ stays I/O-free), `src/api/store.py` (Lambda state), `src/agents/pipeline.py` and
 
 ## Status
 
-M0–M10 complete. 597 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
+M0–M11 complete. 617 tests, `mypy --strict` clean, 3 contracts kept, ~96% coverage on
 `src/cfa` and `src/risk`.
 
 **RESULTS.md now carries real market data** (Alpaca prices, EDGAR fundamentals, FRED rates,

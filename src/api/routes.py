@@ -21,6 +21,13 @@ from fastapi import FastAPI, HTTPException
 
 from src.api.schemas import (
     DISCLAIMER,
+    RATIO_FAMILIES,
+    PricePointResponse,
+    RatioRow,
+    ResearchResponse,
+    ScreenResponse,
+    SymbolCard,
+    ValuationResponse,
     AttributionResponse,
     AuditEntryResponse,
     AuditResponse,
@@ -39,6 +46,7 @@ from src.api.schemas import (
     money,
     ratio,
 )
+from src.api.research import ResearchService, SymbolProfile
 from src.audit.log import AuditLog
 from src.backtest.engine import BacktestResult
 from src.backtest.metrics import PerformanceMetrics, compute_metrics
@@ -61,6 +69,10 @@ class DashboardState:
     llm_provider: str = "null"
     executor: str = "simulated"
     data_source: str = "synthetic"
+    #: Present when the run was built from a resolved setup; drives the
+    #: research endpoints. Absent for a bare backtest, which still serves the
+    #: portfolio and performance views.
+    research: ResearchService | None = None
 
     @classmethod
     def from_result(
@@ -69,6 +81,7 @@ class DashboardState:
         capabilities: Capabilities,
         audit: AuditLog | None = None,
         sectors: Mapping[str, str] | None = None,
+        research: ResearchService | None = None,
         **labels: str,
     ) -> DashboardState:
         metrics = compute_metrics(
@@ -84,6 +97,7 @@ class DashboardState:
             capabilities=capabilities,
             audit=audit or AuditLog(),
             sectors=sectors or {},
+            research=research,
             **labels,
         )
 
@@ -272,6 +286,96 @@ def create_app(state: DashboardState) -> FastAPI:
             advisory_constraints=advisory,
         )
 
+    def _card(profile: SymbolProfile) -> SymbolCard:
+        return SymbolCard(
+            symbol=profile.symbol,
+            sector=profile.sector,
+            category=profile.category,
+            beta=ratio(profile.beta) if profile.beta is not None else None,
+            current_weight=ratio(profile.current_weight),
+            latest_price=money(profile.latest_price)
+            if profile.latest_price is not None
+            else None,
+            change_1d=ratio(profile.change_1d) if profile.change_1d is not None else None,
+            change_ytd=ratio(profile.change_ytd) if profile.change_ytd is not None else None,
+            volatility=ratio(profile.volatility) if profile.volatility is not None else None,
+            has_fundamentals=profile.has_fundamentals,
+        )
+
+    @app.get("/api/screen", response_model=ScreenResponse)
+    def screen() -> ScreenResponse:
+        """Every investable instrument, with headline figures."""
+        if state.research is None:
+            raise HTTPException(status_code=503, detail="research data is not loaded")
+        cards = [_card(p) for p in state.research.screen()]
+        return ScreenResponse(
+            as_of=state.research.as_of.isoformat(),
+            data_source=state.data_source,
+            count=len(cards),
+            symbols=cards,
+            sectors=sorted({c.sector for c in cards}),
+        )
+
+    @app.get("/api/research/{symbol}", response_model=ResearchResponse)
+    def research(symbol: str) -> ResearchResponse:
+        """Deep dive on one instrument."""
+        if state.research is None:
+            raise HTTPException(status_code=503, detail="research data is not loaded")
+
+        known = {i.symbol for i in state.research.instruments()}
+        wanted = symbol.upper()
+        if wanted not in known:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{wanted} is not in the investable universe",
+            )
+
+        found = state.research.research(wanted)
+        return ResearchResponse(
+            profile=_card(found.profile),
+            as_of=state.research.as_of.isoformat(),
+            prices=[
+                PricePointResponse(
+                    t=point.timestamp.date().isoformat(),
+                    close=money(point.close),
+                    adjusted=money(point.adjusted),
+                )
+                for point in found.prices
+            ],
+            ratios=[
+                RatioRow(
+                    name=name,
+                    value=ratio(value),
+                    family=RATIO_FAMILIES.get(name, "Other"),
+                )
+                for name, value in sorted(found.ratios.items())
+            ],
+            valuation=(
+                ValuationResponse(
+                    method=found.valuation.method,
+                    value=money(found.valuation.value)
+                    if found.valuation.value is not None
+                    else None,
+                    reason=found.valuation.reason,
+                )
+                if found.valuation is not None
+                else None
+            ),
+            enterprise_value=money(found.enterprise_value)
+            if found.enterprise_value is not None
+            else None,
+            capm_required_return=ratio(found.capm_required_return)
+            if found.capm_required_return is not None
+            else None,
+            fundamentals_period=(
+                found.fundamentals.period_end.date().isoformat()
+                if found.fundamentals is not None and found.fundamentals.period_end
+                else None
+            ),
+            veto_codes=list(found.veto_codes),
+            notes=list(found.notes),
+        )
+
     @app.get("/api/cycles", response_model=list[CycleSummary])
     def cycles() -> list[CycleSummary]:
         return [
@@ -302,6 +406,7 @@ def app_from_environment() -> FastAPI:
     """
     from src.backtest.engine import BacktestConfig, run_backtest
     from src.data.live import resolve_setup
+    from src.data.universe import load_universe
     from src.execution.fill_models import SpreadCrossFillModel
     from src.execution.simulated import SimulatedExecutor
     from src.risk.ips import load_policy
@@ -321,11 +426,29 @@ def app_from_environment() -> FastAPI:
     result = run_backtest(
         config, setup.source, executor, load_policy(), setup.sectors, setup.betas
     )
+
+    # Realized weights from the last executed cycle, and every symbol the risk
+    # engine has ever objected to — both feed the research view.
+    weights: dict[str, Decimal] = {}
+    if result.executed and result.executed[-1].report is not None:
+        weights = dict(result.executed[-1].report.realized_weights)
+    vetoes: dict[str, list[str]] = {}
+    for cycle in result.cycles:
+        for violation in cycle.assessment.violations:
+            if violation.symbol:
+                vetoes.setdefault(violation.symbol, []).append(violation.code.value)
+
     return create_app(
         DashboardState.from_result(
             result,
             capabilities=executor.capabilities(),
             sectors=setup.sectors,
+            research=ResearchService(
+                setup=setup,
+                universe=load_universe(),
+                current_weights=weights,
+                veto_codes={k: tuple(v) for k, v in vetoes.items()},
+            ),
             llm_provider=os.environ.get("LLM_PROVIDER", "null"),
             executor=os.environ.get("EXECUTOR", "simulated_spread"),
             data_source=setup.data_source,
