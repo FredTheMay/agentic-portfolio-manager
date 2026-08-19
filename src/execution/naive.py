@@ -33,6 +33,7 @@ from typing import Any, Iterator, Mapping, Protocol, Sequence, runtime_checkable
 import httpx
 
 from src.audit.log import AuditEvent, AuditLog, Standard
+from src.data.cache import redact
 from src.decision.mandate import RebalanceMandate
 from src.execution.base import (
     Account,
@@ -139,9 +140,11 @@ class AlpacaPaperBroker:
                 timeout=self.timeout,
             )
         except httpx.HTTPError as exc:
-            raise BrokerError(f"{method} {path} failed: {exc}") from exc
+            raise BrokerError(redact(f"{method} {path} failed: {exc}")) from exc
         if response.status_code >= 400:
-            raise BrokerError(f"{method} {path} returned {response.status_code}: {response.text[:200]}")
+            raise BrokerError(
+                redact(f"{method} {path} returned {response.status_code}: {response.text[:200]}")
+            )
         return response.json()
 
     def submit_market_order(

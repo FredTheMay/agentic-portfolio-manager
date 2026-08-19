@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -78,6 +79,23 @@ class OfflineError(FetchError):
 #: canonical form appears verbatim in error messages, so including a key would
 #: put it into logs, tracebacks, and CI output.
 SENSITIVE_PARAMS = frozenset({"api_key", "apikey", "token", "access_token", "key"})
+
+
+#: Matches a credential in a query string, whatever produced the text.
+_SECRET_IN_URL = re.compile(
+    r"(?i)\b(api[_-]?key|apikey|token|access[_-]?token|key)=([^&\s\"']+)"
+)
+
+
+def redact(text: str) -> str:
+    """Strip credentials from any text before it is raised, logged or printed.
+
+    Excluding credentials from :func:`_canonical` is not sufficient on its own:
+    httpx embeds the *full* request URL in its own exception messages, so a
+    failing FRED call would otherwise put the API key into the error, the logs,
+    and CI output. Anything that might surface to a human goes through here.
+    """
+    return _SECRET_IN_URL.sub(r"\1=<redacted>", text)
 
 
 def _canonical(url: str, params: Mapping[str, str] | None) -> str:
@@ -225,7 +243,8 @@ class HttpxFetcher:
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise FetchError(f"request to {url} failed: {exc}") from exc
+            # httpx puts the full URL — query string included — in its message.
+            raise FetchError(redact(f"request to {url} failed: {exc}")) from exc
         return loads(response.text)
 
 

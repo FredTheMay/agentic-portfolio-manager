@@ -23,7 +23,7 @@ make results              # replays offline; deterministic
 > Sharpe of 1.33 says more about that period than about the strategy. There is no 2008, no 2020
 > crash, and no rate shock in this sample.
 >
-> **3. It underperformed.** 19.26% against a 20.59% benchmark, with a **negative information
+> **3. It underperformed.** 19.58% against a 20.33% benchmark, with a **negative information
 > ratio**. That is the expected outcome under the semi-strong efficiency assumption this project
 > states up front, and it is reported rather than tuned away.
 
@@ -33,7 +33,7 @@ make results              # replays offline; deterministic
 
 | | |
 |---|---|
-| Window | 2023-07-20 → 2026-08-18 (771 trading periods) |
+| Window | 2023-07-20 → 2026-08-18 (773 trading periods) |
 | Universe | 27 instruments + SPY benchmark |
 | Rebalance | every 21 sessions, subject to the 5% corridor |
 | Estimation | 100 sessions, Ledoit-Wolf shrunk |
@@ -48,36 +48,36 @@ optimistic figure is the classic amateur tell.
 
 | Metric | `InstantFillModel` | `SpreadCrossFillModel` |
 |---|---:|---:|
-| **Annualized TWR** | **19.36%** | **19.26%** |
-| Benchmark TWR | 20.59% | 20.59% |
-| MWR | 19.25% | 19.12% |
-| Annualized volatility | 11.52% | 11.51% |
-| Max drawdown | 16.80% | 16.64% |
-| Portfolio beta | 0.69 | 0.69 |
-| R² vs benchmark | 0.79 | 0.79 |
-| Sharpe | 1.34 | 1.33 |
-| Treynor | 0.2239 | 0.2225 |
-| Jensen's α | 3.97% | 3.87% |
-| **α t-statistic** | **1.16** | **1.13** |
+| **Annualized TWR** | **19.62%** | **19.58%** |
+| Benchmark TWR | 20.33% | 20.33% |
+| MWR | 19.48% | 19.44% |
+| Annualized volatility | 11.76% | 11.75% |
+| Max drawdown | 17.04% | 17.05% |
+| Portfolio beta | 0.70 | 0.70 |
+| R² vs benchmark | 0.78 | 0.78 |
+| Sharpe | 1.33 | 1.33 |
+| Treynor | 0.2238 | 0.2232 |
+| Jensen's α | 4.21% | 4.17% |
+| **α t-statistic** | **1.18** | **1.17** |
 | **α significant at 5%?** | **No** | **No** |
-| Information ratio | −0.17 | −0.19 |
-| Tracking error | 7.00% | 7.03% |
-| Cycles executed | 16 | 17 |
-| **Cycles vetoed** | **15** | **14** |
-| Total commission | 0.00 | 27.48 |
+| Information ratio | −0.10 | −0.11 |
+| Tracking error | 7.05% | 7.05% |
+| Cycles executed | 17 | 17 |
+| **Cycles vetoed** | **15** | **15** |
+| Total commission | 0.00 | 29.86 |
 | Mean implementation shortfall | 0.00 bps | 1.00 bps |
-| Result digest | `bc36acf263427fa9…` | `980d28ed0a2cd335…` |
+| Result digest | `bc36acf263427fa9…` | `7c58361c7812cda2…` |
 
-**Execution cost drag: 12 bps annualized.**
+**Execution cost drag: 4 bps annualized.**
 
 ## What the risk engine actually did
 
-31 cycles, of which **15 were vetoed outright** and most of the rest modified before execution.
+32 cycles, of which **15 were vetoed outright** and most of the rest modified before execution.
 
 | Veto | Count |
 |---|---:|
 | `REBALANCE_CORRIDOR` | 11 |
-| `MAX_VOLATILITY` | 3 |
+| `MAX_VOLATILITY` | 4 |
 
 | Repair applied | Count |
 |---|---:|
@@ -108,18 +108,18 @@ regression path is wired correctly.
 
 ## Reading this honestly
 
-**The alpha is not statistically significant.** Jensen's α is +3.87%, which looks good alone. Its
-t-statistic is **1.13**, well below the ~1.96 needed at 5%. The point estimate cannot be
+**The alpha is not statistically significant.** Jensen's α is +4.17%, which looks good alone. Its
+t-statistic is **1.17**, well below the ~1.96 needed at 5%. The point estimate cannot be
 distinguished from zero. This is exactly why SPEC §6.1 requires beta by regression rather than the
 `Cov/Var` shortcut: the shortcut hands you the α and hides the fact that it means nothing.
 
-**Beta 0.69 explains the shortfall.** With R² of 0.79, roughly four-fifths of the portfolio's
+**Beta 0.70 explains the shortfall.** With R² of 0.78, roughly four-fifths of the portfolio's
 variance is systematic. It ran at about two-thirds of market risk — the IPS cash buffer (repaired
 30 times) and the volatility ceiling binding — so lagging a rising benchmark is the arithmetic
 consequence, not a surprise.
 
-**Risk-adjusted, it is competitive.** Sharpe 1.33 against 11.51% volatility versus a benchmark
-that took materially more risk for its 20.59%. Whether that trade is worth making is the
+**Risk-adjusted, it is competitive.** Sharpe 1.33 against 11.75% volatility versus a benchmark
+that took materially more risk for its 20.33%. Whether that trade is worth making is the
 investor's call, which is what an IPS is for.
 
 ## Structural acceptance criteria (SPEC §11)

@@ -80,3 +80,46 @@ def test_no_vendor_key_shape_appears_in_tracked_config() -> None:
                 suspects.append(f"{path.relative_to(ROOT)} matches {pattern.pattern}")
 
     assert not suspects, "possible credential in a tracked file:\n" + "\n".join(suspects)
+
+
+def test_credentials_are_stripped_from_error_messages() -> None:
+    """A key must not reach an exception, a log line, or CI output.
+
+    Excluding credentials from the cache key was not enough on its own: httpx
+    embeds the *full* request URL in its own exception text, so a failing FRED
+    call printed the API key verbatim. That is how the FRED key ended up on a
+    terminal during the first live backfill.
+    """
+    from src.data.cache import redact
+
+    cases = [
+        ("https://api.test/x?series_id=DGS3MO&api_key=abc123DEF456", "abc123DEF456"),
+        ("failed for url 'https://a.test/?token=zzz999'", "zzz999"),
+        ("GET /v2/x?access_token=SEKRIT&id=7", "SEKRIT"),
+        ("?apikey=Hunter2&b=2", "Hunter2"),
+    ]
+    for text, secret in cases:
+        cleaned = redact(text)
+        assert secret not in cleaned, f"{secret!r} survived redaction of {text!r}"
+        assert "<redacted>" in cleaned
+
+    # Non-sensitive parameters must survive, or the message stops being useful.
+    assert "series_id=DGS3MO" in redact(cases[0][0])
+    assert "id=7" in redact(cases[2][0])
+
+
+def test_every_outbound_client_redacts_its_errors() -> None:
+    # Each module that raises an upstream error message must route it through
+    # redact(), or it becomes a new leak path the moment that vendor 500s.
+    from pathlib import Path
+
+    for relative in (
+        "src/data/cache.py",
+        "src/execution/naive.py",
+        "src/llm/gemini.py",
+        "src/llm/groq.py",
+    ):
+        source = (ROOT / relative).read_text()
+        if "httpx" not in source:
+            continue
+        assert "redact(" in source, f"{relative} raises upstream errors without redaction"

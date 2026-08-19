@@ -24,6 +24,7 @@ from typing import TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from src.data.cache import redact
 from src.llm.base import InvalidResponseError, LLMError, LLMProvider, RateLimitError
 
 M = TypeVar("M", bound=BaseModel)
@@ -81,12 +82,12 @@ class GroqProvider(LLMProvider):
                 timeout=self.timeout,
             )
         except httpx.HTTPError as exc:
-            raise LLMError(f"Groq request failed: {exc}") from exc
+            raise LLMError(redact(f"Groq request failed: {exc}")) from exc
 
         if response.status_code == 429:
             raise RateLimitError("Groq rate limit reached")
         if response.status_code >= 400:
-            raise LLMError(f"Groq returned {response.status_code}: {response.text[:200]}")
+            raise LLMError(redact(f"Groq returned {response.status_code}: {response.text[:200]}"))
 
         try:
             body = response.json()
