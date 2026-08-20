@@ -13,9 +13,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
 
 from src.api.schemas import (
     DISCLAIMER,
@@ -45,14 +47,36 @@ from src.api.schemas import (
     ratio,
 )
 from src.api.research import ResearchService, SymbolProfile
+from src.api.store import StateStore, build_store
 from src.audit.log import AuditLog
 from src.backtest.engine import BacktestResult
 from src.backtest.metrics import PerformanceMetrics, compute_metrics
 from src.cfa.portfolio import risk_decomposition
-from src.execution.base import Capabilities
+from src.data.live import BacktestSetup
+from src.execution.base import Capabilities, ExecutionProvider
 from src.risk.codes import Decision
 
 ZERO = Decimal(0)
+
+#: Routes whose response depends only on the finished backtest — not on a
+#: specific symbol — so one rendered payload can serve every request until
+#: the next scheduled cycle overwrites it. Small enough combined to live in
+#: the single SNAPSHOT_KEY item alongside it. /api/research/{symbol} is
+#: cached too (render_research_snapshot), but as one DynamoDB item per
+#: symbol — 400 price points across ~28 symbols is over the 400KB
+#: single-item limit combined.
+CACHEABLE_ROUTES: tuple[str, ...] = (
+    "/api/status",
+    "/api/portfolio",
+    "/api/performance",
+    "/api/frontier",
+    "/api/vetoes",
+    "/api/attribution",
+    "/api/audit",
+    "/api/capabilities",
+    "/api/screen",
+    "/api/cycles",
+)
 
 
 @dataclass(slots=True)
@@ -98,6 +122,104 @@ class DashboardState:
             research=research,
             **labels,
         )
+
+
+def _card(profile: SymbolProfile) -> SymbolCard:
+    return SymbolCard(
+        symbol=profile.symbol,
+        sector=profile.sector,
+        category=profile.category,
+        beta=ratio(profile.beta) if profile.beta is not None else None,
+        current_weight=ratio(profile.current_weight),
+        latest_price=money(profile.latest_price)
+        if profile.latest_price is not None
+        else None,
+        change_1d=ratio(profile.change_1d) if profile.change_1d is not None else None,
+        change_ytd=ratio(profile.change_ytd) if profile.change_ytd is not None else None,
+        volatility=ratio(profile.volatility) if profile.volatility is not None else None,
+        has_fundamentals=profile.has_fundamentals,
+    )
+
+
+def _research_response(state: DashboardState, symbol: str) -> ResearchResponse:
+    """Deep dive on one instrument.
+
+    Module-level (not nested in create_app) so both the live app and the
+    cached app's lazy fallback for this route can call the same logic.
+    """
+    if state.research is None:
+        raise HTTPException(status_code=503, detail="research data is not loaded")
+
+    known = {i.symbol for i in state.research.instruments()}
+    wanted = symbol.upper()
+    if wanted not in known:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{wanted} is not in the investable universe",
+        )
+
+    found = state.research.research(wanted)
+    return ResearchResponse(
+        profile=_card(found.profile),
+        as_of=state.research.as_of.isoformat(),
+        prices=[
+            PricePointResponse(
+                t=point.timestamp.date().isoformat(),
+                close=money(point.close),
+                adjusted=money(point.adjusted),
+            )
+            for point in found.prices
+        ],
+        ratios=[
+            RatioRow(
+                name=name,
+                value=ratio(value),
+                family=RATIO_FAMILIES.get(name, "Other"),
+            )
+            for name, value in sorted(found.ratios.items())
+        ],
+        valuation=(
+            ValuationResponse(
+                method=found.valuation.method,
+                value=money(found.valuation.value)
+                if found.valuation.value is not None
+                else None,
+                reason=found.valuation.reason,
+            )
+            if found.valuation is not None
+            else None
+        ),
+        enterprise_value=money(found.enterprise_value)
+        if found.enterprise_value is not None
+        else None,
+        capm_required_return=ratio(found.capm_required_return)
+        if found.capm_required_return is not None
+        else None,
+        fundamentals_period=(
+            found.fundamentals.period_end.date().isoformat()
+            if found.fundamentals is not None and found.fundamentals.period_end
+            else None
+        ),
+        veto_codes=list(found.veto_codes),
+        notes=list(found.notes),
+    )
+
+
+def _cycles_response(state: DashboardState) -> list[CycleSummary]:
+    return [
+        CycleSummary(
+            timestamp=cycle.timestamp.isoformat(),
+            decision=cycle.assessment.decision.value,
+            note=cycle.note,
+            veto_codes=[v.code.value for v in cycle.assessment.violations],
+            repair_codes=[r.code.value for r in cycle.assessment.repairs],
+            turnover=ratio(cycle.report.realized_turnover) if cycle.report else None,
+            shortfall_bps=(
+                ratio(cycle.report.implementation_shortfall_bps) if cycle.report else None
+            ),
+        )
+        for cycle in state.result.cycles
+    ]
 
 
 def create_app(state: DashboardState) -> FastAPI:
@@ -284,22 +406,6 @@ def create_app(state: DashboardState) -> FastAPI:
             advisory_constraints=advisory,
         )
 
-    def _card(profile: SymbolProfile) -> SymbolCard:
-        return SymbolCard(
-            symbol=profile.symbol,
-            sector=profile.sector,
-            category=profile.category,
-            beta=ratio(profile.beta) if profile.beta is not None else None,
-            current_weight=ratio(profile.current_weight),
-            latest_price=money(profile.latest_price)
-            if profile.latest_price is not None
-            else None,
-            change_1d=ratio(profile.change_1d) if profile.change_1d is not None else None,
-            change_ytd=ratio(profile.change_ytd) if profile.change_ytd is not None else None,
-            volatility=ratio(profile.volatility) if profile.volatility is not None else None,
-            has_fundamentals=profile.has_fundamentals,
-        )
-
     @app.get("/api/screen", response_model=ScreenResponse)
     def screen() -> ScreenResponse:
         """Every investable instrument, with headline figures."""
@@ -316,95 +422,71 @@ def create_app(state: DashboardState) -> FastAPI:
 
     @app.get("/api/research/{symbol}", response_model=ResearchResponse)
     def research(symbol: str) -> ResearchResponse:
-        """Deep dive on one instrument."""
-        if state.research is None:
-            raise HTTPException(status_code=503, detail="research data is not loaded")
-
-        known = {i.symbol for i in state.research.instruments()}
-        wanted = symbol.upper()
-        if wanted not in known:
-            raise HTTPException(
-                status_code=404,
-                detail=f"{wanted} is not in the investable universe",
-            )
-
-        found = state.research.research(wanted)
-        return ResearchResponse(
-            profile=_card(found.profile),
-            as_of=state.research.as_of.isoformat(),
-            prices=[
-                PricePointResponse(
-                    t=point.timestamp.date().isoformat(),
-                    close=money(point.close),
-                    adjusted=money(point.adjusted),
-                )
-                for point in found.prices
-            ],
-            ratios=[
-                RatioRow(
-                    name=name,
-                    value=ratio(value),
-                    family=RATIO_FAMILIES.get(name, "Other"),
-                )
-                for name, value in sorted(found.ratios.items())
-            ],
-            valuation=(
-                ValuationResponse(
-                    method=found.valuation.method,
-                    value=money(found.valuation.value)
-                    if found.valuation.value is not None
-                    else None,
-                    reason=found.valuation.reason,
-                )
-                if found.valuation is not None
-                else None
-            ),
-            enterprise_value=money(found.enterprise_value)
-            if found.enterprise_value is not None
-            else None,
-            capm_required_return=ratio(found.capm_required_return)
-            if found.capm_required_return is not None
-            else None,
-            fundamentals_period=(
-                found.fundamentals.period_end.date().isoformat()
-                if found.fundamentals is not None and found.fundamentals.period_end
-                else None
-            ),
-            veto_codes=list(found.veto_codes),
-            notes=list(found.notes),
-        )
+        return _research_response(state, symbol)
 
     @app.get("/api/cycles", response_model=list[CycleSummary])
     def cycles() -> list[CycleSummary]:
-        return [
-            CycleSummary(
-                timestamp=cycle.timestamp.isoformat(),
-                decision=cycle.assessment.decision.value,
-                note=cycle.note,
-                veto_codes=[v.code.value for v in cycle.assessment.violations],
-                repair_codes=[r.code.value for r in cycle.assessment.repairs],
-                turnover=ratio(cycle.report.realized_turnover) if cycle.report else None,
-                shortfall_bps=(
-                    ratio(cycle.report.implementation_shortfall_bps) if cycle.report else None
-                ),
-            )
-            for cycle in state.result.cycles
-        ]
+        return _cycles_response(state)
 
     return app
 
 
-def app_from_environment() -> FastAPI:
-    """Build an app over the best data available.
+def _dashboard_state_from_result(
+    result: BacktestResult,
+    executor: ExecutionProvider,
+    setup: BacktestSetup,
+    audit: AuditLog | None = None,
+) -> DashboardState:
+    """Assemble the dashboard's view of one finished backtest.
+
+    Shared between the live API path and the scheduled cycle (which has
+    already run its own backtest with its own executor selection), so a
+    persisted snapshot and a fresh computation can never disagree about what
+    a given result means. ``audit`` carries whatever the caller's own run
+    recorded — the agent pipeline's AGENT_UNAVAILABLE/rate-limit fallbacks,
+    in run_cycle's case — through to /api/audit; the live path has none of
+    its own yet and defaults to empty, same as before this parameter existed.
+    """
+    from src.data.universe import load_universe
+
+    # Realized weights from the last executed cycle, and every symbol the risk
+    # engine has ever objected to — both feed the research view.
+    weights: dict[str, Decimal] = {}
+    if result.executed and result.executed[-1].report is not None:
+        weights = dict(result.executed[-1].report.realized_weights)
+    vetoes: dict[str, list[str]] = {}
+    for cycle in result.cycles:
+        for violation in cycle.assessment.violations:
+            if violation.symbol:
+                vetoes.setdefault(violation.symbol, []).append(violation.code.value)
+
+    return DashboardState.from_result(
+        result,
+        capabilities=executor.capabilities(),
+        audit=audit,
+        sectors=setup.sectors,
+        research=ResearchService(
+            setup=setup,
+            universe=load_universe(),
+            current_weights=weights,
+            veto_codes={k: tuple(v) for k, v in vetoes.items()},
+        ),
+        llm_provider=os.environ.get("LLM_PROVIDER", "null"),
+        executor=os.environ.get("EXECUTOR", "simulated_spread"),
+        data_source=setup.data_source,
+    )
+
+
+def build_dashboard_state() -> DashboardState:
+    """Live path: replay the full backtest over the best data available.
 
     Real recorded market data when ``make backfill`` has run, synthetic
     otherwise — the same decision the results script and the scheduled Lambda
-    make, taken once in :func:`src.data.live.resolve_setup` so the three cannot
+    make, taken once in :func:`src.data.live.resolve_setup` so the two cannot
     disagree about what they are displaying. ``/api/status`` reports which.
     """
     from src.backtest.engine import BacktestConfig, run_backtest
     from src.data.live import resolve_setup
-    from src.data.universe import load_universe
     from src.execution.fill_models import SpreadCrossFillModel
     from src.execution.simulated import SimulatedExecutor
     from src.risk.ips import load_policy
@@ -424,31 +506,106 @@ def app_from_environment() -> FastAPI:
     result = run_backtest(
         config, setup.source, executor, load_policy(), setup.sectors, setup.betas
     )
+    return _dashboard_state_from_result(result, executor, setup)
 
-    # Realized weights from the last executed cycle, and every symbol the risk
-    # engine has ever objected to — both feed the research view.
-    weights: dict[str, Decimal] = {}
-    if result.executed and result.executed[-1].report is not None:
-        weights = dict(result.executed[-1].report.realized_weights)
-    vetoes: dict[str, list[str]] = {}
-    for cycle in result.cycles:
-        for violation in cycle.assessment.violations:
-            if violation.symbol:
-                vetoes.setdefault(violation.symbol, []).append(violation.code.value)
 
-    return create_app(
-        DashboardState.from_result(
-            result,
-            capabilities=executor.capabilities(),
-            sectors=setup.sectors,
-            research=ResearchService(
-                setup=setup,
-                universe=load_universe(),
-                current_weights=weights,
-                veto_codes={k: tuple(v) for k, v in vetoes.items()},
-            ),
-            llm_provider=os.environ.get("LLM_PROVIDER", "null"),
-            executor=os.environ.get("EXECUTOR", "simulated_spread"),
-            data_source=setup.data_source,
-        )
+def render_snapshot(state: DashboardState) -> dict[str, Any]:
+    """Materialize every cacheable route's response once, ahead of traffic.
+
+    Goes through an in-process TestClient over the real app rather than
+    duplicating route logic, so a cached response is byte-identical to what
+    computing it live would have produced.
+    """
+    client = TestClient(create_app(state))
+    return {path: client.get(path).json() for path in CACHEABLE_ROUTES}
+
+
+def render_research_snapshot(state: DashboardState) -> dict[str, dict[str, Any]]:
+    """Materialize /api/research/{symbol} for every symbol in the universe.
+
+    Kept separate from render_snapshot() — see CACHEABLE_ROUTES — so the
+    caller can store each symbol as its own DynamoDB item.
+    """
+    if state.research is None:
+        return {}
+    client = TestClient(create_app(state))
+    rendered: dict[str, dict[str, Any]] = {}
+    for instrument in state.research.instruments():
+        response = client.get(f"/api/research/{instrument.symbol}")
+        if response.status_code == 200:
+            rendered[instrument.symbol] = response.json()
+    return rendered
+
+
+def _cached_route_handler(payload: Any) -> Callable[[], Any]:
+    def handler() -> Any:
+        return JSONResponse(content=payload)
+
+    return handler
+
+
+def create_cached_app(routes: Mapping[str, Any], store: StateStore) -> FastAPI:
+    """Serve pre-rendered responses instead of replaying the backtest.
+
+    No route here ever falls back to a live computation. CloudFront's origin
+    timeout tops out at 60s without an AWS support request, and a live
+    backtest over a real ~28-symbol universe measures around 88s — a live
+    fallback would not degrade gracefully, it would guarantee a 504 for
+    every request that hit it. /api/research/{symbol} reads its own
+    DynamoDB item per request (fast: one GetItem) rather than being
+    preloaded into `routes` — see render_research_snapshot for why it is
+    stored separately.
+    """
+    app = FastAPI(
+        title="Agentic Portfolio Manager",
+        description=DISCLAIMER,
+        version="1.0.0",
     )
+
+    @app.get("/api/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok", "disclaimer": DISCLAIMER}
+
+    for path in CACHEABLE_ROUTES:
+        cached = routes.get(path)
+        if cached is not None:
+            app.add_api_route(path, _cached_route_handler(cached), methods=["GET"])
+
+    @app.get("/api/research/{symbol}", response_model=ResearchResponse)
+    def research(symbol: str) -> ResearchResponse:
+        cached = store.get_research(symbol.upper())
+        if cached is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{symbol.upper()} is not in the investable universe",
+            )
+        # A dict, not a ResearchResponse — FastAPI validates it against
+        # response_model and serializes it at the framework level, so mypy's
+        # static view of this function's return type doesn't see that.
+        return cached  # type: ignore[return-value]
+
+    return app
+
+
+def app_from_environment() -> FastAPI:
+    """Serve a persisted snapshot when one exists, else compute once and save it.
+
+    A snapshot means some cycle — scheduled or this one — has already paid the
+    backtest cost; the API then answers instantly instead of replaying it on
+    every cold container. With no snapshot yet (e.g. right after a fresh
+    deploy, before the first scheduled cycle), this request pays the live
+    cost once and persists the result, so it is the *only* request that has
+    to wait — every request after it, on any container, reads the snapshot
+    this one just wrote instead of recomputing.
+    """
+    store = build_store()
+    snapshot = store.latest_snapshot()
+    routes = snapshot.get("routes") if snapshot else None
+    if routes:
+        return create_cached_app(routes, store)
+
+    state = build_dashboard_state()
+    store.put_snapshot({"routes": render_snapshot(state), "data_source": state.data_source})
+    for symbol, payload in render_research_snapshot(state).items():
+        store.put_research(symbol, payload)
+    return create_app(state)

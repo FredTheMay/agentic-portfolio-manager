@@ -375,8 +375,8 @@ def test_walk_forward_reports_an_impossible_span() -> None:
 
 def test_a_no_trade_cycle_records_why() -> None:
     # A silent no-trade is indistinguishable from a strategy that chose to
-    # hold, which is exactly how a misconfigured optimizer hid for an entire
-    # backtest during M6. With too few names the constrained frontier is
+    # hold, which is exactly how a misconfigured optimizer once hid for an
+    # entire backtest. With too few names the constrained frontier is
     # infeasible, and the cycle must say so.
     result = run_backtest(
         config(symbols=("AAA", "BBB", "CCC")),

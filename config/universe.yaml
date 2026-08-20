@@ -1,8 +1,8 @@
-# Investable universe (SPEC §6.3 UNIVERSE_WHITELIST, §6.8).
+# Investable universe.
 #
-# Loaded and enforced by the risk engine at M3. Recorded here at M2 because the
-# survivorship limitation below is a property of the *data*, and SPEC §4.4
-# requires it stated prominently rather than buried.
+# Loaded and enforced by the risk engine. Recorded here because the
+# survivorship limitation below is a property of the *data*, and belongs
+# stated prominently rather than buried.
 
 # ---------------------------------------------------------------------------
 # KNOWN LIMITATION — SURVIVORSHIP BIAS
@@ -31,7 +31,7 @@
 #     unaffected — they do not depend on which names survived.
 #
 # This limitation is repeated in the README and must also appear in the
-# dashboard footer (SPEC §4.4, M9).
+# dashboard footer.
 
 survivorship:
   point_in_time_constituents: false
@@ -48,7 +48,7 @@ survivorship:
 # strategy.
 
 benchmark:
-  # SPEC §6.3: 60/40 SPY/AGG.
+  # 60/40 SPY/AGG.
   equity: SPY
   bonds: AGG
   equity_weight: "0.60"
@@ -79,8 +79,8 @@ equities:
   - {symbol: NEE, sector: UTILITIES}
   - {symbol: LIN, sector: MATERIALS}
 
-# SPEC §6.8 requires REIT and commodity exposure so the alternative-investment
-# concepts are exercised on real holdings rather than described in the abstract.
+# REIT and commodity exposure so the alternative-investment concepts are
+# exercised on real holdings rather than described in the abstract.
 etfs:
   - {symbol: SPY, sector: BROAD_EQUITY, category: EQUITY_INDEX}
   - {symbol: AGG, sector: FIXED_INCOME, category: BOND_INDEX}
@@ -88,7 +88,7 @@ etfs:
   - {symbol: DBC, sector: COMMODITIES, category: COMMODITY}
   - {symbol: GLD, sector: COMMODITIES, category: COMMODITY}
 
-# Instruments deliberately excluded (SPEC §6.3, unique circumstances).
+# Instruments deliberately excluded.
 exclusions:
   - {symbol: TQQQ, reason: "leveraged; violates NO_LEVERAGE"}
   - {symbol: SQQQ, reason: "inverse; violates NO_SHORTING in substance"}

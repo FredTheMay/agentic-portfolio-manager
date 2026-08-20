@@ -1,12 +1,11 @@
-# Categorical view -> numeric tilt (SPEC §5.4).
+# Categorical view -> numeric tilt.
 #
 # THIS FILE IS WHERE AN LLM'S OPINION BECOMES A NUMBER.
 #
 # That conversion happens exactly once, here, by table lookup — never inside a
-# model and never inside an agent. It is the mechanical form of SPEC §2.1: the
-# LLM proposes a category and a conviction ordinal, and deterministic
-# configuration turns that into an expected-return adjustment the optimizer can
-# use.
+# model and never inside an agent. The LLM proposes a category and a
+# conviction ordinal, and deterministic configuration turns that into an
+# expected-return adjustment the optimizer can use.
 #
 # Why a table rather than, say, asking the model for a number: a number from a
 # model is unauditable and unfalsifiable. A table is a reviewable diff, it is
@@ -45,8 +44,8 @@ tilts:
 # How the three agents combine into one view per name.
 #
 # The fundamental analyst gets the most weight because its input is a
-# deterministic ratio table computed in Python (SPEC §5.2) — the model is
-# interpreting arithmetic it was handed, not recalling facts. The research
+# deterministic ratio table computed in Python — the model is interpreting
+# arithmetic it was handed, not recalling facts. The research
 # agent reads news and is the most exposed to stale or thin sourcing. Macro is
 # a portfolio-level signal applied to every name, so it gets the least
 # per-name weight.
@@ -55,9 +54,9 @@ agent_weights:
   research: "0.30"
   macro: "0.20"
 
-# A view with no dated citation is discarded to NEUTRAL (SPEC §5.1, CFA
-# Standard V(A): reasonable basis). Set to 0 to disable the requirement, which
-# would mean accepting recommendations with no support.
+# A view with no dated citation is discarded to NEUTRAL (CFA Standard V(A):
+# reasonable basis). Set to 0 to disable the requirement, which would mean
+# accepting recommendations with no support.
 minimum_citations: 1
 
 # Absolute ceiling on the combined tilt for any one name, after aggregation.

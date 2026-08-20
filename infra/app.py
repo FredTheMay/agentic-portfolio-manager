@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CDK application entry point (SPEC §10)."""
+"""CDK application entry point."""
 
 from __future__ import annotations
 

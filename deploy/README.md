@@ -1,4 +1,4 @@
-# EC2 deployment (M11)
+# EC2 deployment
 
 Single small instance: **nginx** serves the built React bundle and reverse-proxies `/api` to
 **uvicorn** on localhost. No load balancer, no container registry, no Kubernetes — the app is

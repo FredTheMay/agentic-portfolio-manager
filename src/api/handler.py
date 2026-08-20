@@ -14,29 +14,79 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Mapping
 
-from src.api.store import InMemoryStateStore, StateStore
+from src.agents.pipeline import AgentViewPipeline, ViewPipeline
+from src.api.store import REGION_ENV, TABLE_ENV, StateStore, build_store
 from src.audit.log import AuditEvent, AuditLog, Standard
+from src.data.live import BacktestSetup
 from src.time.clock import Clock, WallClock
 
 ZERO = Decimal(0)
 
-TABLE_ENV = "STATE_TABLE"
-REGION_ENV = "AWS_REGION"
+__all__ = [
+    "REGION_ENV",
+    "TABLE_ENV",
+    "api_handler",
+    "build_store",
+    "run_cycle",
+    "scheduled_cycle",
+]
 
 
-def build_store() -> StateStore:
-    """DynamoDB when a table is configured, memory otherwise.
+def _build_view_pipeline(setup: BacktestSetup, audit: AuditLog) -> AgentViewPipeline:
+    """Real Fundamental + Macro agents over already-recorded data.
 
-    Falling back to memory rather than failing means a misconfigured deployment
-    degrades to "runs but does not persist", which is visible in the dashboard,
-    instead of a Lambda that cannot start.
+    Research stays NEUTRAL: no headline source exists anywhere in this
+    codebase, and ResearchAgent's own design already treats "no headlines" as
+    a legitimate state, not a failure — fabricating one would be worse than
+    leaving it unset. Wrapped in ResilientProvider so a malformed response or
+    a rate limit degrades one symbol's view to NEUTRAL rather than raising
+    partway through ~500 calls (23 symbols x 21 cycles) and losing the cycle.
     """
-    table = os.environ.get(TABLE_ENV)
-    if not table:
-        return InMemoryStateStore()
-    from src.api.store import DynamoStateStore
+    from src.agents.fundamental import FundamentalAgent
+    from src.agents.macro import MacroAgent, read_signals
+    from src.agents.research import ResearchAgent
+    from src.data.cache import CachingFetcher, ResponseCache
+    from src.data.edgar import EdgarClient, Fundamentals
+    from src.data.fred import CPI, FED_FUNDS, TERM_SPREAD, UNEMPLOYMENT, FredClient
+    from src.data.live import DEFAULT_CACHE_ROOT
+    from src.llm import get_provider
+    from src.llm.cache import ResilientProvider
 
-    return DynamoStateStore(table_name=table, region=os.environ.get(REGION_ENV))
+    provider = ResilientProvider(inner=get_provider())
+    root = DEFAULT_CACHE_ROOT
+
+    fundamentals: dict[str, Fundamentals] = {}
+    macro_signals = None
+    if root.exists():
+        edgar = EdgarClient(CachingFetcher(ResponseCache(root=root), offline=True))
+        for symbol in setup.symbols:
+            try:
+                current = edgar.get_fundamentals(symbol, setup.end)
+            except Exception:  # noqa: BLE001 - an ETF has no filings; not an error
+                current = None
+            if current is not None:
+                fundamentals[symbol] = current
+
+        fred = FredClient(CachingFetcher(ResponseCache(root=root), offline=True))
+        try:
+            macro_signals = read_signals(
+                setup.end,
+                term_spread=fred.series(TERM_SPREAD),
+                unemployment=fred.series(UNEMPLOYMENT),
+                cpi=fred.series(CPI),
+                fed_funds=fred.series(FED_FUNDS),
+            )
+        except Exception:  # noqa: BLE001 - degenerate/missing series is not fatal
+            macro_signals = None
+
+    return AgentViewPipeline(
+        research=ResearchAgent(provider=provider, audit=audit),
+        fundamental=FundamentalAgent(provider=provider, audit=audit),
+        macro=MacroAgent(provider=provider),
+        fundamentals=fundamentals,
+        macro_signals=macro_signals,
+        audit=audit,
+    )
 
 
 def run_cycle(
@@ -49,6 +99,11 @@ def run_cycle(
     so in the returned payload. A cycle that silently invents data would be far
     worse than one that reports it is running on a simulation.
     """
+    from src.api.routes import (
+        _dashboard_state_from_result,
+        render_research_snapshot,
+        render_snapshot,
+    )
     from src.backtest.engine import BacktestConfig, run_backtest
     from src.data.live import resolve_setup
     from src.execution import get_executor
@@ -61,6 +116,8 @@ def run_cycle(
 
     executor = get_executor()
     setup = resolve_setup()
+    used_executor = executor if isinstance(executor, SimulatedExecutor) else SimulatedExecutor()
+    view_pipeline = _build_view_pipeline(setup, audit)
     config = BacktestConfig(
         start=setup.start,
         end=setup.end,
@@ -74,10 +131,11 @@ def run_cycle(
     result = run_backtest(
         config,
         setup.source,
-        executor if isinstance(executor, SimulatedExecutor) else SimulatedExecutor(),
+        used_executor,
         load_policy(),
         setup.sectors,
         setup.betas,
+        views=view_pipeline,
     )
 
     latest = result.cycles[-1] if result.cycles else None
@@ -115,7 +173,16 @@ def run_cycle(
     # put_item on the mandate id: a replayed schedule overwrites rather than
     # appending a second record of the same decision.
     active_store.put_cycle(cycle_id, payload)
-    active_store.put_snapshot(payload)
+
+    # Pre-render every dashboard route now, while the result is already in
+    # hand, so the API Lambda serves a DynamoDB read instead of replaying this
+    # same backtest on every cold container. Kept out of the per-cycle record
+    # above — that history accumulates indefinitely, and only the single
+    # latest snapshot needs to carry the full rendered payload.
+    state = _dashboard_state_from_result(result, used_executor, setup, audit=audit)
+    active_store.put_snapshot({**payload, "routes": render_snapshot(state)})
+    for symbol, research_payload in render_research_snapshot(state).items():
+        active_store.put_research(symbol, research_payload)
     active_store.append_audit(list(audit))
     return payload
 
@@ -126,8 +193,19 @@ def scheduled_cycle(event: Mapping[str, Any], context: Any = None) -> dict[str, 
     return {"statusCode": 200, "body": payload}
 
 
-def api_handler() -> Any:
-    """API Gateway entry point, wrapped by Mangum in the Lambda image."""
+def api_handler(event: Mapping[str, Any], context: Any) -> Any:
+    """Lambda Function URL entry point, adapted to the FastAPI app via Mangum.
+
+    Built fresh every invocation, deliberately not cached module-level for a
+    warm container's whole lifetime. app_from_environment() already reads the
+    persisted snapshot first, which is a single fast DynamoDB read — freezing
+    the built app at cold start would mean a warm container keeps serving
+    whatever snapshot existed at its first request forever, never noticing a
+    newer one (a scheduled cycle's fresh result, or a corrected replay) until
+    that container happens to recycle.
+    """
+    from mangum import Mangum
+
     from src.api.routes import app_from_environment
 
-    return app_from_environment()
+    return Mangum(app_from_environment())(event, context)

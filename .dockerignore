@@ -1,0 +1,19 @@
+.venv
+.git
+.github
+node_modules
+web
+tests
+infra
+scripts
+docs
+# data/cache is the recorded market data (make backfill) — bundled into the
+# image so the deployed Lambdas run on real prices/fundamentals, not
+# synthetic fallback data. Only data/cache is needed; nothing else under
+# data/ is used at runtime.
+*.md
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.hypothesis

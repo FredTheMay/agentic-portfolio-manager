@@ -92,7 +92,7 @@ class BarPayload:
 
 @dataclass(frozen=True, slots=True)
 class QuotePayload:
-    """Top-of-book quote. Feeds ``SpreadCrossFillModel`` at M5."""
+    """Top-of-book quote. Feeds ``SpreadCrossFillModel``."""
 
     bid: Decimal
     ask: Decimal

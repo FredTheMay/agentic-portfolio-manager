@@ -22,9 +22,9 @@ EXECUTION = SRC / "execution"
 #: has learned about orders, venues, or fills.
 #:
 #: Note this is deliberately *not* a ban on the string "alpaca". Alpaca is both
-#: a market data vendor and a broker, and M2 puts "EDGAR/FRED/Alpaca
-#: behind MarketDataSource" in the data layer. Reading price bars from a vendor
-#: that also happens to broker trades leaks no execution semantics; calling its
+#: a market data vendor and a broker, and EDGAR/FRED/Alpaca all sit behind
+#: MarketDataSource in the data layer. Reading price bars from a vendor that
+#: also happens to broker trades leaks no execution semantics; calling its
 #: trading API does. The hosts differ, so the check can be precise.
 ORDER_SURFACE_TOKENS = (
     "api.alpaca.markets",  # the *trading* host; data.alpaca.markets is fine

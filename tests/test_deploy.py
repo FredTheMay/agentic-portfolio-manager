@@ -5,11 +5,16 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, Mapping
 
 import pytest
 
+from fastapi.testclient import TestClient
+
+import src.api.routes as routes_module
 from src.api.handler import run_cycle
-from src.api.store import InMemoryStateStore, encode
+from src.api.routes import CACHEABLE_ROUTES, app_from_environment, create_cached_app
+from src.api.store import InMemoryStateStore, decode, encode
 from src.api.ws import Broadcaster
 from src.audit.log import AuditEvent, AuditLog, Standard
 from src.time.clock import UTC, SimulationClock
@@ -33,6 +38,16 @@ def test_decimals_are_stored_as_strings() -> None:
 
 def test_exponent_notation_is_normalized() -> None:
     assert encode({"v": D("1E+2")}) == {"v": "100"}
+
+
+def test_decode_undoes_boto3_reconstructing_ints_as_decimal() -> None:
+    # boto3's resource API hands back every DynamoDB N-type attribute as
+    # Decimal, including a plain int a caller wrote — json.dumps chokes on
+    # that later (as a live 500 confirmed), so a read must convert it back.
+    stored = {"cycles": D("21"), "by_code": {"MAX_SECTOR_WEIGHT": D("3")}, "symbol": "AAPL"}
+    decoded = decode(stored)
+    assert decoded == {"cycles": 21, "by_code": {"MAX_SECTOR_WEIGHT": 3}, "symbol": "AAPL"}
+    assert type(decoded["cycles"]) is int
 
 
 def test_in_memory_store_round_trips() -> None:
@@ -103,6 +118,26 @@ def test_a_cycle_uses_the_injected_clock() -> None:
     assert payload["as_of"] == NOW.isoformat()
 
 
+def test_build_view_pipeline_uses_recorded_data_when_present() -> None:
+    from src.api.handler import _build_view_pipeline
+    from src.data.live import DEFAULT_CACHE_ROOT, resolve_setup
+    from src.llm.cache import ResilientProvider
+
+    setup = resolve_setup()
+    pipeline = _build_view_pipeline(setup, AuditLog())
+
+    assert isinstance(pipeline.research.provider, ResilientProvider)
+    assert isinstance(pipeline.fundamental.provider, ResilientProvider)
+    assert isinstance(pipeline.macro.provider, ResilientProvider)
+    # Real when make backfill has run on this machine; empty (never
+    # fabricated) otherwise — either way, never left unwired.
+    if DEFAULT_CACHE_ROOT.exists():
+        assert pipeline.fundamentals or pipeline.macro_signals is not None
+    else:
+        assert pipeline.fundamentals == {}
+        assert pipeline.macro_signals is None
+
+
 def test_build_store_falls_back_to_memory_without_a_table(monkeypatch: pytest.MonkeyPatch) -> None:
     # A misconfigured deploy should degrade to "runs but does not persist",
     # which is visible, rather than to a Lambda that cannot start.
@@ -110,6 +145,113 @@ def test_build_store_falls_back_to_memory_without_a_table(monkeypatch: pytest.Mo
 
     monkeypatch.delenv("STATE_TABLE", raising=False)
     assert isinstance(build_store(), InMemoryStateStore)
+
+
+# ---------------------------------------------------------------------------
+# snapshot cache: the API should not replay the backtest once a cycle exists
+# ---------------------------------------------------------------------------
+
+
+def _persisted_routes(store: InMemoryStateStore) -> Mapping[str, Any]:
+    snapshot = store.latest_snapshot()
+    assert snapshot is not None
+    return snapshot["routes"]  # type: ignore[no-any-return]
+
+
+def test_a_cycle_persists_a_rendered_snapshot() -> None:
+    store = InMemoryStateStore()
+    run_cycle(store=store, clock=SimulationClock(NOW))
+
+    snapshot = store.latest_snapshot()
+    assert snapshot is not None
+    routes = snapshot["routes"]
+    assert set(routes) == set(CACHEABLE_ROUTES)
+    # Every cached payload is what a live call to that route actually
+    # returned — not a placeholder — so /api/status should report real counts.
+    assert routes["/api/status"]["cycles"] > 0
+
+
+def test_cached_routes_never_touch_the_backtest(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = InMemoryStateStore()
+    run_cycle(store=store, clock=SimulationClock(NOW))
+    routes = _persisted_routes(store)
+
+    def _boom() -> None:
+        raise AssertionError("a cached route recomputed the backtest")
+
+    monkeypatch.setattr(routes_module, "build_dashboard_state", _boom)
+    client = TestClient(create_cached_app(routes, store))
+
+    for path in CACHEABLE_ROUTES:
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.json() == routes[path]
+
+
+def test_a_cycle_persists_research_for_every_universe_symbol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.data.universe import load_universe
+
+    store = InMemoryStateStore()
+    run_cycle(store=store, clock=SimulationClock(NOW))
+
+    universe_symbols = {i.symbol for i in load_universe().instruments}
+    assert set(store.research) == universe_symbols
+
+    def _boom() -> None:
+        raise AssertionError("research recomputed the backtest instead of reading the cache")
+
+    monkeypatch.setattr(routes_module, "build_dashboard_state", _boom)
+    routes = _persisted_routes(store)
+    client = TestClient(create_cached_app(routes, store))
+
+    aapl = client.get("/api/research/AAPL")
+    assert aapl.status_code == 200
+    assert aapl.json()["profile"]["symbol"] == "AAPL"
+    # Case-insensitive, matching create_app's live behavior.
+    assert client.get("/api/research/aapl").status_code == 200
+
+
+def test_cached_app_404s_an_unknown_symbol_without_recomputing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    run_cycle(store=store, clock=SimulationClock(NOW))
+
+    def _boom() -> None:
+        raise AssertionError("an unknown symbol triggered a live recompute")
+
+    monkeypatch.setattr(routes_module, "build_dashboard_state", _boom)
+    routes = _persisted_routes(store)
+    client = TestClient(create_cached_app(routes, store))
+
+    assert client.get("/api/research/NOTREAL").status_code == 404
+
+
+def test_app_from_environment_prefers_a_persisted_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    run_cycle(store=store, clock=SimulationClock(NOW))
+
+    monkeypatch.setattr(routes_module, "build_store", lambda: store)
+    monkeypatch.setattr(
+        routes_module,
+        "build_dashboard_state",
+        lambda: (_ for _ in ()).throw(AssertionError("recomputed despite a snapshot")),
+    )
+
+    client = TestClient(app_from_environment())
+    assert client.get("/api/status").status_code == 200
+
+
+def test_app_from_environment_falls_back_live_with_no_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(routes_module, "build_store", lambda: InMemoryStateStore())
+    client = TestClient(app_from_environment())
+    assert client.get("/api/status").status_code == 200
 
 
 # ---------------------------------------------------------------------------

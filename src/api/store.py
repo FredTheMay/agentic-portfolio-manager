@@ -12,6 +12,7 @@ depends on it nor pays to import it.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
@@ -23,6 +24,13 @@ CYCLE_PREFIX = "CYCLE#"
 #: Partition key for the most recent portfolio snapshot.
 SNAPSHOT_KEY = "SNAPSHOT#latest"
 AUDIT_PREFIX = "AUDIT#"
+#: One item per symbol, not folded into SNAPSHOT_KEY: 400 price points across
+#: a ~28-symbol universe is roughly 700KB combined, over DynamoDB's 400KB
+#: single-item limit.
+RESEARCH_PREFIX = "RESEARCH#"
+
+TABLE_ENV = "STATE_TABLE"
+REGION_ENV = "AWS_REGION"
 
 
 def encode(value: Any) -> Any:
@@ -33,6 +41,26 @@ def encode(value: Any) -> Any:
         return {str(k): encode(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [encode(item) for item in value]
+    return value
+
+
+def decode(value: Any) -> Any:
+    """Undo boto3's reconstruction of DynamoDB's N type as Decimal.
+
+    encode() turns every real Decimal into a string before a write, so the
+    only field that reaches DynamoDB's N type is a plain int (a count, a
+    total). boto3's resource API deserializes *every* N-type attribute back
+    as Decimal regardless of what was originally written — there is no way to
+    ask it not to — so a read has to convert it back, or a consumer expecting
+    a plain int (json.dumps, most of all) breaks on something that round
+    tripped through storage rather than something the caller ever produced.
+    """
+    if isinstance(value, Decimal):
+        return int(value)
+    if isinstance(value, Mapping):
+        return {k: decode(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [decode(v) for v in value]
     return value
 
 
@@ -48,6 +76,10 @@ class StateStore(Protocol):
 
     def put_snapshot(self, payload: Mapping[str, Any]) -> None: ...
 
+    def get_research(self, symbol: str) -> Mapping[str, Any] | None: ...
+
+    def put_research(self, symbol: str, payload: Mapping[str, Any]) -> None: ...
+
     def append_audit(self, events: Sequence[AuditEvent]) -> None: ...
 
 
@@ -57,6 +89,7 @@ class InMemoryStateStore:
 
     cycles: dict[str, Mapping[str, Any]] = field(default_factory=dict)
     snapshot: Mapping[str, Any] | None = None
+    research: dict[str, Mapping[str, Any]] = field(default_factory=dict)
     audit: list[Mapping[str, Any]] = field(default_factory=list)
 
     def put_cycle(self, cycle_id: str, payload: Mapping[str, Any]) -> None:
@@ -70,6 +103,12 @@ class InMemoryStateStore:
 
     def put_snapshot(self, payload: Mapping[str, Any]) -> None:
         self.snapshot = encode(payload)
+
+    def get_research(self, symbol: str) -> Mapping[str, Any] | None:
+        return self.research.get(symbol)
+
+    def put_research(self, symbol: str, payload: Mapping[str, Any]) -> None:
+        self.research[symbol] = encode(payload)
 
     def append_audit(self, events: Sequence[AuditEvent]) -> None:
         self.audit.extend(json.loads(event.to_json()) for event in events)
@@ -104,15 +143,23 @@ class DynamoStateStore:
     def get_cycle(self, cycle_id: str) -> Mapping[str, Any] | None:
         response = self._table.get_item(Key={"pk": f"{CYCLE_PREFIX}{cycle_id}"})
         item = response.get("Item")
-        return item if isinstance(item, Mapping) else None
+        return decode(item) if isinstance(item, Mapping) else None
 
     def latest_snapshot(self) -> Mapping[str, Any] | None:
         response = self._table.get_item(Key={"pk": SNAPSHOT_KEY})
         item = response.get("Item")
-        return item if isinstance(item, Mapping) else None
+        return decode(item) if isinstance(item, Mapping) else None
 
     def put_snapshot(self, payload: Mapping[str, Any]) -> None:
         self._table.put_item(Item={"pk": SNAPSHOT_KEY, **encode(payload)})
+
+    def get_research(self, symbol: str) -> Mapping[str, Any] | None:
+        response = self._table.get_item(Key={"pk": f"{RESEARCH_PREFIX}{symbol}"})
+        item = response.get("Item")
+        return decode(item) if isinstance(item, Mapping) else None
+
+    def put_research(self, symbol: str, payload: Mapping[str, Any]) -> None:
+        self._table.put_item(Item={"pk": f"{RESEARCH_PREFIX}{symbol}", **encode(payload)})
 
     def append_audit(self, events: Sequence[AuditEvent]) -> None:
         with self._table.batch_writer() as batch:
@@ -123,3 +170,16 @@ class DynamoStateStore:
                         **encode(json.loads(event.to_json())),
                     }
                 )
+
+
+def build_store() -> StateStore:
+    """DynamoDB when a table is configured, memory otherwise.
+
+    Falling back to memory rather than failing means a misconfigured deployment
+    degrades to "runs but does not persist", which is visible in the dashboard,
+    instead of a Lambda that cannot start.
+    """
+    table = os.environ.get(TABLE_ENV)
+    if not table:
+        return InMemoryStateStore()
+    return DynamoStateStore(table_name=table, region=os.environ.get(REGION_ENV))

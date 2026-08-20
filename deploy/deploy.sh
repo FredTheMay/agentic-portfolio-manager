@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Push the application to an EC2 instance (M11).
+# Push the application to an EC2 instance.
 #
 #   HOST=ubuntu@1.2.3.4 KEY=~/.ssh/key.pem deploy/deploy.sh
 #

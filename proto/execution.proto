@@ -1,4 +1,4 @@
-// The execution boundary (SPEC §3.2).
+// The execution boundary.
 //
 // The decision layer emits target weights and receives fills. It knows nothing
 // about orders, venues, slicing, or brokers. This contract is defined in

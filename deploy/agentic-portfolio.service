@@ -1,4 +1,4 @@
-# systemd unit for the read-only dashboard API (M11, EC2).
+# systemd unit for the read-only dashboard API (EC2).
 #
 # Binds 127.0.0.1 deliberately: nginx is the only thing that should reach it,
 # and binding 0.0.0.0 would expose the API directly regardless of the security

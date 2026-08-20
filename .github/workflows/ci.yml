@@ -21,7 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      # SPEC §3.2 — the boundary contract must compile.
+      # The execution boundary contract must compile.
       - name: Generate protobuf stubs
         run: |
           mkdir -p src/execution/proto_gen
@@ -32,7 +32,7 @@ jobs:
             --grpc_python_out=src/execution/proto_gen \
             proto/execution.proto
 
-      # SPEC §2.2 — a violation fails the build.
+      # A violation of a layer boundary fails the build, not just the review.
       - name: Import contracts
         run: lint-imports
 
@@ -44,7 +44,35 @@ jobs:
       - name: Tests
         run: pytest -v --cov --cov-report=term-missing
 
-      # SPEC §11 — >=90% where a silent arithmetic error would propagate into
-      # every downstream number.
+      # The two packages where a silent arithmetic error would propagate into
+      # every downstream number get a higher bar than the rest of the tree.
       - name: Coverage gate
         run: pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        run: |
+          npm install -g aws-cdk
+          python3 -m venv infra/.venv
+          infra/.venv/bin/pip install -r infra/requirements.txt
+
+      # No AWS credentials and no Docker build here: DockerImageFunction only
+      # builds its image during `cdk deploy`'s asset-publish step, so synth
+      # alone still catches a broken construct, a bad IAM condition, or an
+      # import error in stack.py without needing either.
+      - name: CDK synth
+        run: |
+          cd infra
+          PATH="$(pwd)/.venv/bin:$PATH" cdk synth

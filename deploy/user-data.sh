@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EC2 user-data: provision a fresh Ubuntu 22.04/24.04 instance (M11).
+# EC2 user-data: provision a fresh Ubuntu 22.04/24.04 instance.
 #
 # Installs the runtime and prepares the layout. It does NOT fetch the
 # application — deploy/deploy.sh pushes that from your machine, so the instance

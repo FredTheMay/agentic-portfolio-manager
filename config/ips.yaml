@@ -1,4 +1,4 @@
-# Investment Policy Statement (SPEC §6.3, §7).
+# Investment Policy Statement.
 #
 # The IPS is configuration, not code. Every constraint the risk engine enforces
 # is declared here so that changing policy is a reviewable diff rather than an
@@ -16,7 +16,7 @@
 return_objective:
   target_nominal_annual: "0.08"
   benchmark:
-    # 60/40, the standard balanced reference (SPEC §6.3).
+    # 60/40, the standard balanced reference.
     SPY: "0.60"
     AGG: "0.40"
 
@@ -34,7 +34,7 @@ risk_objective:
   max_annualized_volatility: "0.18"
   volatility_lookback_days: 60
 
-  # Roy's safety-first (SPEC §6.1): maximize (E(Rp) - R_L) / sigma_p.
+  # Roy's safety-first: maximize (E(Rp) - R_L) / sigma_p.
   # These two are policy choices, not derived facts, and are stated as such.
   # R_L = 0 encodes "do not lose money in nominal terms over the horizon".
   safety_first:
@@ -55,7 +55,7 @@ constraints:
 
   tax:
     # Holdings sold inside 366 days realize short-term gains, taxed as ordinary
-    # income. Not a veto — a penalty the optimizer weighs (M4).
+    # income. Not a veto — a penalty the optimizer weighs.
     short_term_holding_days: 366
     short_term_gain_penalty: "0.15"
     wash_sale_window_days: 30
@@ -83,8 +83,8 @@ rebalancing:
   # Cap on one-way turnover per cycle, as a fraction of portfolio value.
   max_turnover: "0.20"
 
-  # Passed through to the execution layer in the mandate (SPEC §3.2). Not a
-  # veto here: the decision layer does not size orders.
+  # Passed through to the execution layer in the mandate. Not a veto here:
+  # the decision layer does not size orders.
   min_trade_notional: "100.00"
 
 # ---------------------------------------------------------------------------

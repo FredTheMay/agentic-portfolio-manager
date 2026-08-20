@@ -30,8 +30,8 @@ test:
 coverage:
 	$(VENV)/bin/pytest --cov --cov-report=term-missing
 
-## SPEC §11 — >=90% on the packages where a silent arithmetic error would
-## propagate into every downstream number.
+## >=90% on the packages where a silent arithmetic error would propagate
+## into every downstream number.
 coverage-gate:
 	$(VENV)/bin/pytest --cov=src.cfa --cov=src.risk --cov-report=term-missing --cov-fail-under=90
 
@@ -55,14 +55,14 @@ web:
 deploy:
 	HOST=$(HOST) KEY=$(KEY) deploy/deploy.sh
 
-## Regenerate the numbers in RESULTS.md (SPEC §11).
+## Regenerate the numbers in RESULTS.md.
 results:
 	PYTHONPATH=. $(PY) scripts/results.py
 
 typecheck:
 	$(VENV)/bin/mypy src tests
 
-## SPEC §2.2 — the decision layer must not import execution.
+## The decision layer must not import execution.
 lint-imports:
 	$(VENV)/bin/lint-imports
 

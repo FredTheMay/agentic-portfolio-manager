@@ -37,9 +37,9 @@ testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q --strict-markers"
 
-# SPEC §11 requires >=90% coverage on src/cfa/ and src/risk/ — the two packages
-# where a silent arithmetic error would propagate into every downstream number.
-# `make coverage` gates on exactly those; the rest of the tree is reported, not
+# >=90% coverage on src/cfa/ and src/risk/ — the two packages where a silent
+# arithmetic error would propagate into every downstream number. `make
+# coverage` gates on exactly those; the rest of the tree is reported, not
 # gated.
 [tool.coverage.run]
 branch = true
@@ -65,7 +65,7 @@ exclude = "^src/execution/proto_gen/"
 # These ship no type information. numpy and pandas do, and are checked.
 # (`scipy-stubs` exists if we ever want scipy checked too.)
 [[tool.mypy.overrides]]
-# boto3, aws_cdk and constructs are AWS-only and live in
+# boto3, mangum, aws_cdk and constructs are AWS-only and live in
 # infra/requirements.txt, deliberately outside this project's dependencies.
 module = [
     "grpc_tools.*",
@@ -74,29 +74,30 @@ module = [
     "sklearn.*",
     "yaml",
     "boto3",
+    "mangum",
     "aws_cdk.*",
     "constructs",
 ]
 ignore_missing_imports = true
 
-# --- SPEC §2.2: the decision layer must not know about execution ---
+# The decision layer must not know about execution.
 [tool.importlinter]
 root_packages = ["src"]
 
 [[tool.importlinter.contracts]]
-name = "Decision layer knows nothing about execution (SPEC 2.2)"
+name = "Decision layer knows nothing about execution"
 type = "forbidden"
 source_modules = ["src.decision"]
 forbidden_modules = ["src.execution"]
 
 [[tool.importlinter.contracts]]
-name = "CFA layer is pure: no I/O, no LLM, no execution (SPEC 6)"
+name = "CFA layer is pure: no I/O, no LLM, no execution"
 type = "forbidden"
 source_modules = ["src.cfa"]
 forbidden_modules = ["src.llm", "src.execution", "src.data", "src.api"]
 
 [[tool.importlinter.contracts]]
-name = "Risk engine is pure: no LLM, no execution, no I/O (SPEC 7)"
+name = "Risk engine is pure: no LLM, no execution, no I/O"
 type = "forbidden"
 source_modules = ["src.risk"]
 forbidden_modules = ["src.llm", "src.execution", "src.api"]

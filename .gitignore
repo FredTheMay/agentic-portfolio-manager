@@ -31,5 +31,8 @@ data/cache/
 .vscode/
 .DS_Store
 
-# Node (web/, arrives at M9)
+# Node (web/)
 node_modules/
+
+# CDK build output — regenerate with `cdk synth`, never commit
+infra/cdk.out/

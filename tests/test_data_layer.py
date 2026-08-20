@@ -208,7 +208,7 @@ def test_edgar_reports_an_unknown_ticker() -> None:
 
 
 def test_edgar_indexes_by_filing_date_not_period_end() -> None:
-    # The M2 restatement of the rule, now through the real parser.
+    # Same rule as the point-in-time store, now through the real parser.
     client = edgar_client()
 
     january = client.get_fundamentals("AAPL", at(2024, 1, 15))

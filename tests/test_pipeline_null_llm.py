@@ -1,8 +1,8 @@
-"""Structural test 3(4): the system works with the LLM disabled.
+"""Structural test: the system works with the LLM disabled.
 
-At M0 there is no pipeline yet, so this exercises the contract every future
-stage depends on: ``NullProvider`` answers any agent schema neutrally, without
-network access and without any agent registering a default.
+Exercises the contract every stage depends on: ``NullProvider`` answers any
+agent schema neutrally, without network access and without any agent
+registering a default.
 
 The bottom of this file is the acceptance criterion itself: the full
 research → aggregate → optimize → risk → mandate → execute → reconcile cycle,
@@ -52,7 +52,7 @@ class Citation(BaseModel):
 
 
 class ResearchView(BaseModel):
-    """Shape of the M7 Research Agent output."""
+    """Shape of the Research Agent output."""
 
     ticker: str
     stance: Stance

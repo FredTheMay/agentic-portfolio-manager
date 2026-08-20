@@ -1,4 +1,4 @@
-# Dashboard (SPEC §9, M11)
+# Dashboard
 
 React + TypeScript + Vite over the read-only FastAPI surface in [`src/api/`](../src/api).
 
@@ -31,8 +31,7 @@ because JSON numbers are IEEE-754 doubles. `percent()`, `fixed()` and `compact()
 keeps the app deployable behind a strict CSP.
 
 **The disclaimer never scrolls away** — a sticky banner plus a required field on every API
-response, so no screen can render without it (SPEC §1). The survivorship caveat sits in the
-footer, as SPEC §4.4 requires.
+response, so no screen can render without it. The survivorship caveat sits in the footer.
 
 **Finance conventions carry meaning, not decoration**: green up / red down, tabular figures so
 digits align down a column, monospace for anything a reader compares. The ticker tape respects
