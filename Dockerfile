@@ -1,4 +1,4 @@
-# Lambda container image (SPEC §10, M10 follow-up).
+# Lambda container image.
 #
 # numpy + scipy + pandas + scikit-learn alone exceed the 250MB unzipped limit
 # for zip-based Lambdas. Container images support up to 10GB, so both the
